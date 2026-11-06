@@ -1359,6 +1359,8 @@ const CATS = [
   {id:'freelance',   e:'💻', n:'Freelance',   c:'#1D4ED8'},
   {id:'contas',      e:'📋', n:'Contas',      c:'#F97316'},
   {id:'fatura',      e:'💳', n:'Fat. Cartão', c:'#6366F1'},
+  {id:'filho',       e:'👶', n:'Filho',       c:'#F472B6'},
+  {id:'investimento',e:'📈', n:'Investimento',c:'#059669'},
   {id:'outros',      e:'📦', n:'Outros',      c:'#6B7280'},
 ];
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
@@ -2233,7 +2235,7 @@ async function exportExcel() {
     const wb = XLSX.utils.book_new();
     const month = ymToLabelLong(S.period);
     const {inc,exp,bal,pct,byC,byP,txs} = getStats();
-    const catEmojis = {alimentação:'🍔',transporte:'🚗',moradia:'🏠',saúde:'💊',lazer:'🎮',educação:'📚',compras:'🛍️',salário:'💼',freelance:'💻',outros:'📦'};
+    const catEmojis = {alimentação:'🍔',transporte:'🚗',moradia:'🏠',saúde:'💊',lazer:'🎮',educação:'📚',compras:'🛍️',salário:'💼',freelance:'💻',contas:'📋',fatura:'💳',filho:'👶',investimento:'📈',outros:'📦'};
     const cats = ['alimentação','transporte','moradia','saúde','lazer','educação','compras','salário','freelance','outros'];
     const payLbl = {cc:'Crédito',deb:'Débito',pix:'Pix'};
 
@@ -2979,7 +2981,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-2';
+const C = 'cp-v4-3';
 const BILL_DAYS = [10,7,5,3,1,0];
 
 self.addEventListener('install', e => {
