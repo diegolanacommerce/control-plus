@@ -1290,13 +1290,32 @@ async function doLogout() {
   closeUserMenu();
   if(!fbAuth) return;
   try {
+    // Garantir que dados estejam na nuvem antes de apagar localmente
+    await doCloudSave();
     await fbAuth.signOut();
     fbUser = null;
     S.licenseValid = false;
+    // Limpa todos os dados locais (transações, período, chave IA)
+    clearLocalData();
     updateUserUI(null);
-    showToast('👋 Logout realizado', 'ok');
+    renderHome();
+    showToast('👋 Logout realizado — dados na nuvem', 'ok');
     setSyncDot('idle');
   } catch(e) { showToast('Erro ao sair', 'err'); }
+}
+
+function clearLocalData() {
+  // Remove todas as transações de todos os meses
+  const toRemove = [];
+  for(let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if(k && (k.startsWith('cp_txs_') || k === 'cp_period' || k === 'cp_last_save' || k === 'cp_bills')) {
+      toRemove.push(k);
+    }
+  }
+  toRemove.forEach(k => localStorage.removeItem(k));
+  // Reseta período para o mês atual na tela
+  S.period = currentYM();
 }
 
 // ══ LICENSE SYSTEM ══
@@ -3193,7 +3212,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-4';
+const C = 'cp-v4-5';
 const BILL_DAYS = [10,7,5,3,1,0];
 
 self.addEventListener('install', e => {
