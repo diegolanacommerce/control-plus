@@ -570,6 +570,64 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
   </div>
 </div>
 
+<!-- LICENSE ACTIVATION MODAL -->
+<div class="fb-ov hidden" id="license-ov">
+  <div class="fb-box" style="max-width:360px">
+    <div class="fb-logo" style="font-size:32px">🔑</div>
+    <div class="fb-title">Ativar Control+</div>
+    <div class="fb-sub" id="license-sub">Insira sua chave de acesso para continuar. Você recebeu essa chave por e-mail após a contratação.</div>
+    <div id="license-err" class="fb-err"></div>
+    <input class="fb-input" id="license-key-input" type="text" placeholder="CP-XXXX-XXXX-XXXX" autocomplete="off" style="letter-spacing:1px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')activateLicense()"/>
+    <button class="fb-btn" id="license-submit-btn" onclick="activateLicense()">Ativar</button>
+    <span class="fb-config-link" onclick="doLogout()" style="color:var(--r)">Sair da conta</span>
+  </div>
+</div>
+
+<!-- ADMIN PANEL MODAL -->
+<div class="fb-ov hidden" id="admin-ov">
+  <div class="fb-box" style="max-width:400px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="fb-title" style="margin:0">🛡️ Admin — Licenças</div>
+      <button onclick="document.getElementById('admin-ov').classList.add('hidden')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--txm)">✕</button>
+    </div>
+    <div style="background:var(--gl);border-radius:var(--radm);padding:12px;margin-bottom:16px;font-size:12px;color:var(--gd)">
+      Gere chaves de acesso para seus clientes. Cada chave tem uma data de validade e só pode ser usada por um e-mail.
+    </div>
+    <div style="display:grid;gap:10px">
+      <div class="frow">
+        <label class="flabel">E-mail do cliente</label>
+        <input class="fb-input" id="adm-email" type="email" placeholder="cliente@email.com"/>
+      </div>
+      <div class="frow">
+        <label class="flabel">Validade</label>
+        <select class="fb-input" id="adm-days" style="background:var(--surf)">
+          <option value="30">30 dias (1 mês)</option>
+          <option value="90">90 dias (3 meses)</option>
+          <option value="180">180 dias (6 meses)</option>
+          <option value="365" selected>365 dias (1 ano)</option>
+          <option value="730">730 dias (2 anos)</option>
+          <option value="99999">Vitalício</option>
+        </select>
+      </div>
+      <div id="adm-err" class="fb-err"></div>
+      <button class="fb-btn" id="adm-gen-btn" onclick="adminGenKey()">🔑 Gerar Chave</button>
+    </div>
+    <div id="adm-result" style="display:none;margin-top:16px;background:var(--surf2);border:1.5px solid var(--g);border-radius:var(--radm);padding:16px">
+      <div style="font-size:11px;color:var(--txm);margin-bottom:6px">Chave gerada:</div>
+      <div id="adm-key-display" style="font-size:17px;font-weight:800;letter-spacing:2px;color:var(--tx);font-family:monospace;cursor:pointer" onclick="copyAdminKey()" title="Clique para copiar"></div>
+      <div id="adm-key-info" style="font-size:11px;color:var(--txm);margin-top:4px"></div>
+      <button onclick="copyAdminKey()" style="margin-top:10px;background:var(--g);color:#fff;border:none;padding:8px 16px;border-radius:var(--rads);font-size:12px;font-weight:700;cursor:pointer;width:100%">📋 Copiar chave</button>
+    </div>
+    <div style="margin-top:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">Chaves ativas</div>
+      <div id="adm-keys-list" style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;color:var(--txm)">Carregando...</div>
+      </div>
+      <button onclick="loadAdminKeys()" style="margin-top:10px;background:var(--surf2);color:var(--txm);border:1px solid var(--brd);padding:8px 16px;border-radius:var(--rads);font-size:12px;cursor:pointer;width:100%">🔄 Atualizar lista</button>
+    </div>
+  </div>
+</div>
+
 <!-- FIREBASE SETUP MODAL -->
 <div class="fb-ov hidden" id="fb-setup-ov">
   <div class="fb-setup-box">
@@ -581,7 +639,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       <b>3.</b> Vá em "Autenticação" → "Sign-in method" → ative <b>Email/Senha</b><br>
       <b>4.</b> Vá em "Firestore Database" → crie banco (modo produção)<br>
       <b>5.</b> Em "Regras" do Firestore, cole:<br>
-      <code style="font-size:10px;background:var(--bg);padding:4px 8px;border-radius:6px;display:block;margin:4px 0">rules_version='2'; service cloud.firestore { match /databases/{db}/documents { match /users/{uid}/{document=**} { allow read,write: if request.auth.uid==uid; } } }</code>
+      <code style="font-size:10px;background:var(--bg);padding:4px 8px;border-radius:6px;display:block;margin:4px 0">rules_version='2'; service cloud.firestore { match /databases/{db}/documents { match /users/{uid}/{document=**} { allow read,write: if request.auth.uid==uid; } match /licenses/{key} { allow read: if request.auth != null; allow write: if request.auth.token.email == 'diegolanacommerce@gmail.com'; } } }</code>
       <b>6.</b> Em "Configurações do projeto" → "Seus apps" → adicione app web → copie as credenciais abaixo
     </div>
     <div class="frow">
@@ -657,7 +715,9 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
         <div class="user-menu" id="user-menu">
           <div class="user-menu-email" id="user-menu-email"></div>
           <div class="user-menu-item" onclick="forceSyncNow()">🔄 Sincronizar agora</div>
-          <div class="user-menu-item" onclick="openApiModal()">🔑 Configurar IA</div>
+          <div class="user-menu-item" onclick="openApiModal()">🤖 Configurar IA</div>
+          <div class="user-menu-item" id="adm-menu-btn" style="display:none" onclick="closeUserMenu();openAdminPanel()">🛡️ Painel Admin</div>
+          <div class="user-menu-item" id="license-info-item" onclick="closeUserMenu();showLicenseInfo()">🔑 Minha licença</div>
           <div class="user-menu-item danger" onclick="doLogout()">🚪 Sair da conta</div>
         </div>
       </div>
@@ -966,12 +1026,27 @@ async function initFirebase() {
     fbDb = firebase.firestore();
     // Enable offline persistence (cache local para funcionar sem internet)
     fbDb.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
-    fbAuth.onAuthStateChanged(user => {
+    fbAuth.onAuthStateChanged(async user => {
       fbUser = user;
       updateUserUI(user);
       if(user) {
-        startRealtimeSync();
+        // Check license before granting access
+        const isAdmin = user.email === ADMIN_EMAIL;
+        const hasLicense = isAdmin || await checkLicense(user);
+        S.licenseValid = hasLicense;
+        // Show admin menu button for admin
+        const admBtn = document.getElementById('adm-menu-btn');
+        if(admBtn) admBtn.style.display = isAdmin ? 'flex' : 'none';
+        if(hasLicense) {
+          startRealtimeSync();
+        } else {
+          // Show license activation screen
+          document.getElementById('license-ov').classList.remove('hidden');
+          document.getElementById('license-key-input').focus();
+          stopRealtimeSync();
+        }
       } else {
+        S.licenseValid = false;
         stopRealtimeSync();
       }
     });
@@ -1217,10 +1292,146 @@ async function doLogout() {
   try {
     await fbAuth.signOut();
     fbUser = null;
+    S.licenseValid = false;
     updateUserUI(null);
     showToast('👋 Logout realizado', 'ok');
     setSyncDot('idle');
   } catch(e) { showToast('Erro ao sair', 'err'); }
+}
+
+// ══ LICENSE SYSTEM ══
+const ADMIN_EMAIL = 'diegolanacommerce@gmail.com'; // seu email de admin
+
+function genLicenseKey() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const seg = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  return `CP-${seg()}-${seg()}-${seg()}`;
+}
+
+async function checkLicense(user) {
+  if(!fbDb || !user) return false;
+  if(user.email === ADMIN_EMAIL) return true; // admin sempre libera
+  try {
+    // busca licença pelo email do usuário
+    const snap = await fbDb.collection('licenses').where('email','==',user.email).where('active','==',true).get();
+    if(snap.empty) return false;
+    const lic = snap.docs[0].data();
+    const now = Date.now();
+    if(lic.expiresAt && lic.expiresAt < now) return false; // expirada
+    return true;
+  } catch(e) { console.error('license check error', e); return false; }
+}
+
+async function activateLicense() {
+  const keyRaw = document.getElementById('license-key-input').value.trim().toUpperCase();
+  const errEl = document.getElementById('license-err');
+  const btn = document.getElementById('license-submit-btn');
+  errEl.textContent = '';
+  if(!keyRaw || keyRaw.length < 10) { errEl.textContent = 'Insira uma chave válida.'; return; }
+  if(!fbUser) { errEl.textContent = 'Faça login primeiro.'; return; }
+  btn.disabled = true; btn.textContent = 'Verificando...';
+  try {
+    const doc = await fbDb.collection('licenses').doc(keyRaw).get();
+    if(!doc.exists) { errEl.textContent = '❌ Chave não encontrada.'; return; }
+    const lic = doc.data();
+    if(!lic.active) { errEl.textContent = '❌ Esta chave foi desativada.'; return; }
+    if(lic.expiresAt && lic.expiresAt < Date.now()) { errEl.textContent = '❌ Chave expirada.'; return; }
+    if(lic.email && lic.email !== fbUser.email) { errEl.textContent = '❌ Esta chave pertence a outro e-mail.'; return; }
+    // Vincula ao email atual se ainda não vinculada
+    if(!lic.email) await fbDb.collection('licenses').doc(keyRaw).update({email: fbUser.email, activatedAt: Date.now()});
+    S.licenseValid = true;
+    document.getElementById('license-ov').classList.add('hidden');
+    showToast('✅ Licença ativada!', 'ok');
+    startRealtimeSync();
+  } catch(e) { errEl.textContent = 'Erro ao verificar. Tente novamente.'; }
+  finally { btn.disabled = false; btn.textContent = 'Ativar'; }
+}
+
+function showLicenseInfo() {
+  if(!fbUser) return;
+  if(fbUser.email === ADMIN_EMAIL) { showToast('🛡️ Conta admin — acesso total', 'ok'); return; }
+  fbDb.collection('licenses').where('email','==',fbUser.email).where('active','==',true).get().then(snap => {
+    if(snap.empty) { showToast('⚠️ Nenhuma licença ativa', 'err'); return; }
+    const lic = snap.docs[0].data();
+    const exp = lic.expiresAt === 99999999999999 ? 'Vitalícia' : new Date(lic.expiresAt).toLocaleDateString('pt-BR');
+    showToast(`🔑 Licença válida até ${exp}`, 'ok');
+  }).catch(() => showToast('Erro ao verificar licença', 'err'));
+}
+
+// ── ADMIN ──
+function openAdminPanel() {
+  if(!fbUser || fbUser.email !== ADMIN_EMAIL) { showToast('Acesso negado', 'err'); return; }
+  document.getElementById('admin-ov').classList.remove('hidden');
+  loadAdminKeys();
+}
+
+async function adminGenKey() {
+  const email = document.getElementById('adm-email').value.trim().toLowerCase();
+  const days = parseInt(document.getElementById('adm-days').value);
+  const errEl = document.getElementById('adm-err');
+  const btn = document.getElementById('adm-gen-btn');
+  errEl.textContent = '';
+  if(!email || !email.includes('@')) { errEl.textContent = 'E-mail inválido.'; return; }
+  btn.disabled = true; btn.textContent = 'Gerando...';
+  try {
+    const key = genLicenseKey();
+    const expiresAt = days === 99999 ? 99999999999999 : Date.now() + days * 86400000;
+    await fbDb.collection('licenses').doc(key).set({
+      key, email, active: true, createdAt: Date.now(), expiresAt,
+      createdBy: ADMIN_EMAIL
+    });
+    document.getElementById('adm-result').style.display = 'block';
+    document.getElementById('adm-key-display').textContent = key;
+    const exp = days === 99999 ? 'Vitalícia' : `Válida por ${days} dias (até ${new Date(expiresAt).toLocaleDateString('pt-BR')})`;
+    document.getElementById('adm-key-info').textContent = `${email} — ${exp}`;
+    document.getElementById('adm-email').value = '';
+    loadAdminKeys();
+  } catch(e) { errEl.textContent = 'Erro ao gerar chave.'; }
+  finally { btn.disabled = false; btn.textContent = '🔑 Gerar Chave'; }
+}
+
+function copyAdminKey() {
+  const k = document.getElementById('adm-key-display').textContent;
+  navigator.clipboard.writeText(k).then(() => showToast('📋 Chave copiada!', 'ok')).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = k; document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); showToast('📋 Chave copiada!', 'ok');
+  });
+}
+
+async function loadAdminKeys() {
+  if(!fbDb) return;
+  const list = document.getElementById('adm-keys-list');
+  list.innerHTML = '<div style="font-size:12px;color:var(--txm)">Carregando...</div>';
+  try {
+    const snap = await fbDb.collection('licenses').orderBy('createdAt','desc').limit(50).get();
+    if(snap.empty) { list.innerHTML = '<div style="font-size:12px;color:var(--txm)">Nenhuma chave gerada ainda.</div>'; return; }
+    list.innerHTML = snap.docs.map(d => {
+      const l = d.data();
+      const now = Date.now();
+      const expired = l.expiresAt !== 99999999999999 && l.expiresAt < now;
+      const expTxt = l.expiresAt === 99999999999999 ? 'Vitalícia' : new Date(l.expiresAt).toLocaleDateString('pt-BR');
+      const status = !l.active ? '🔴 Inativa' : expired ? '🟡 Expirada' : '🟢 Ativa';
+      return `<div style="background:var(--surf2);border:1px solid var(--brd);border-radius:var(--rads);padding:10px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span style="font-family:monospace;font-weight:700;font-size:11px;color:var(--tx)">${l.key}</span>
+          <span>${status}</span>
+        </div>
+        <div style="color:var(--txm);margin-top:4px">${l.email || '<sem e-mail>'} · Vence: ${expTxt}</div>
+        ${l.active ? `<button onclick="revokeKey('${l.key}')" style="margin-top:6px;background:var(--rl);color:var(--rd);border:none;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">Revogar</button>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { list.innerHTML = '<div style="font-size:12px;color:var(--r)">Erro ao carregar.</div>'; }
+}
+
+async function revokeKey(key) {
+  if(!confirm(`Revogar a chave ${key}?`)) return;
+  try {
+    await fbDb.collection('licenses').doc(key).update({active: false});
+    showToast('🔴 Chave revogada', 'ok');
+    loadAdminKeys();
+  } catch(e) { showToast('Erro ao revogar', 'err'); }
 }
 
 function updateUserUI(user) {
@@ -1324,7 +1535,8 @@ const S = {
   txCat: 'alimentação',
   loading: false,
   online: navigator.onLine,
-  currentTab: 'home'
+  currentTab: 'home',
+  licenseValid: false
 };
 
 function save() { savePeriod(S.period, S.txs); }
@@ -2981,7 +3193,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-3';
+const C = 'cp-v4-4';
 const BILL_DAYS = [10,7,5,3,1,0];
 
 self.addEventListener('install', e => {
