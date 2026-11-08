@@ -561,8 +561,8 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
           <label class="flabel">Valor (R$)</label>
           <input class="finput" id="tx-amount" type="number" step="0.01" min="0" placeholder="0,00" inputmode="decimal"/>
         </div>
-        <div style="flex:1">
-          <label class="flabel">Vencimento <span style="color:var(--r)">*</span></label>
+        <div style="flex:1" id="due-wrapper">
+          <label class="flabel" id="due-label">Vencimento <span style="color:var(--r)">*</span></label>
           <input class="finput" id="tx-due" type="date"/>
         </div>
       </div>
@@ -2316,9 +2316,27 @@ function selectCard(id) {
 function setTxPay(p) {
   S.txPay = p;
   ['cc','deb','pix'].forEach(k=>document.getElementById('psb-'+k).classList.toggle('sel',k===p));
-  const picker = document.getElementById('card-picker');
-  const panel  = document.getElementById('inline-bank-panel');
-  const label  = document.getElementById('inline-bank-label');
+
+  const picker  = document.getElementById('card-picker');
+  const panel   = document.getElementById('inline-bank-panel');
+  const label   = document.getElementById('inline-bank-label');
+  const dueWrap = document.getElementById('due-wrapper');
+  const dueInp  = document.getElementById('tx-due');
+  const dueLabel= document.getElementById('due-label');
+
+  // Vencimento: só faz sentido para crédito (fatura futura)
+  // Débito e Pix: débito imediato, sem vencimento
+  if(dueWrap) {
+    if(p === 'cc') {
+      dueWrap.style.display = '';
+      if(dueLabel) dueLabel.innerHTML = 'Vencimento <span style="color:var(--r)">*</span>';
+    } else {
+      dueWrap.style.display = 'none';
+      if(dueInp) { dueInp.value = todayISO(); } // preenche com hoje automaticamente
+    }
+  }
+
+  // Card picker: crédito e débito
   if(picker) {
     if(p === 'cc' || p === 'deb') {
       picker.classList.add('show');
@@ -2338,22 +2356,29 @@ function saveTx() {
   const obs = document.getElementById('tx-obs').value.trim();
   if(!desc) { showToast('Preencha a descrição!','err'); return; }
   if(!amount||isNaN(amount)||amount<=0) { showToast('Informe um valor válido!','err'); return; }
-  if(!dueISO) { showToast('Informe a data de vencimento!','err'); document.getElementById('tx-due').focus(); return; }
+  // Vencimento obrigatório apenas no crédito; débito/pix usa data de hoje
+  const pay = S.txType==='receita'?'pix':S.txPay;
+  if(pay === 'cc' && !dueISO) {
+    showToast('Informe a data de vencimento!','err');
+    document.getElementById('tx-due').focus();
+    return;
+  }
 
   // Detect if the date belongs to a different month
   const datePeriod = dateISO ? dateISO.slice(0,7) : S.period;
   const targetPeriod = datePeriod;
 
   const cat = CAT[S.txCat];
-  const pay = S.txType==='receita'?'pix':S.txPay;
-  // resolve card name if credit
+  // resolve card name if credit or debit
   let cardName = '';
-  if(pay === 'cc' && S.txCardId) {
+  if((pay === 'cc' || pay === 'deb') && S.txCardId) {
     const card = getCards().find(c=>c.id===S.txCardId);
     if(card) cardName = card.name;
   }
+  // Para débito/pix: due = hoje (debitado imediatamente)
+  const finalDue = (pay === 'cc') ? dueISO : dateISO;
   const tx = { id: S.editId||Date.now(), type:S.txType, amount, desc, cat:S.txCat, pay,
-                date:isoToBR(dateISO), due:isoToBR(dueISO), obs, emoji:cat.e,
+                date:isoToBR(dateISO), due:isoToBR(finalDue), obs, emoji:cat.e,
                 ...(cardName ? {card: cardName} : {}) };
 
   if(S.editId) {
@@ -3805,7 +3830,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-12';
+const C = 'cp-v4-13';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
