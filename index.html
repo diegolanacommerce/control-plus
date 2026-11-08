@@ -3805,7 +3805,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-11';
+const C = 'cp-v4-12';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
@@ -3901,41 +3901,62 @@ self.addEventListener('notificationclick', e => {
   }));
 });
   `;
-  navigator.serviceWorker.register(
-    URL.createObjectURL(new Blob([sw], {type:'text/javascript'}))
-  ).then(reg => {
+  // Salva o SW como Blob com URL estável no sessionStorage para o mesmo SW ser reutilizado
+  // e usa updateViaCache:'none' para o browser sempre checar atualização na rede
+  let swUrl;
+  try {
+    // Tenta reutilizar URL da sessão (mesmo blob = mesmo SW = update detectado)
+    const saved = sessionStorage.getItem('cp_sw_url');
+    // Sempre recria para garantir código atualizado
+    const blob = new Blob([sw], {type:'text/javascript'});
+    swUrl = URL.createObjectURL(blob);
+    sessionStorage.setItem('cp_sw_url', swUrl);
+  } catch(e) {
+    swUrl = URL.createObjectURL(new Blob([sw], {type:'text/javascript'}));
+  }
+
+  navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' }).then(reg => {
     window._swReg = reg;
-    // Envia bills para o SW verificar notificações
+
+    // Força verificação de atualização a cada abertura do app
+    reg.update().catch(()=>{});
+
     function sendBillsToSW() {
-      if(!reg.active) return;
+      const active = reg.active || navigator.serviceWorker.controller;
+      if(!active) return;
       const notified = {};
       getBills().forEach(b => {
         [10,7,5,3,1,0].forEach(d => {
-          const k = b.id+'_'+d;
           const v = localStorage.getItem('cp_notif_'+b.id+'_'+d);
-          if(v) notified[k] = v;
+          if(v) notified[b.id+'_'+d] = v;
         });
       });
-      reg.active.postMessage({ type:'CHECK_BILLS', bills: getBills(), notified });
+      active.postMessage({ type:'CHECK_BILLS', bills: getBills(), notified });
     }
-    // Aguarda SW estar ativo
+
     if(reg.active) sendBillsToSW();
-    else reg.addEventListener('updatefound', () => {
-      reg.installing?.addEventListener('statechange', () => {
-        if(reg.active) sendBillsToSW();
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if(!nw) return;
+      nw.addEventListener('statechange', () => {
+        if(nw.state === 'activated') sendBillsToSW();
       });
     });
   }).catch(()=>{});
 
-  // Escuta mensagem do SW avisando que nova versão foi instalada → recarrega silenciosamente
+  // Escuta mensagem do SW avisando nova versão → recarrega
   navigator.serviceWorker.addEventListener('message', e => {
     if(e.data && e.data.type === 'SW_UPDATED') {
-      // Pequeno delay para garantir que o SW terminou de ativar
       setTimeout(() => {
         showToast('🔄 App atualizado! Recarregando...', 'ok');
         setTimeout(() => window.location.reload(), 1200);
       }, 500);
     }
+  });
+
+  // Fallback: se o controller mudar (novo SW assumiu), recarrega também
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
   });
 }
 
