@@ -579,6 +579,16 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
         </div>
         <!-- Card picker — aparece ao selecionar Crédito -->
         <div class="card-picker" id="card-picker"></div>
+        <!-- Inline bank add panel (shown when clicking + Banco) -->
+        <div id="inline-bank-panel" style="display:none;padding:10px;background:var(--surf2);border:1.5px solid var(--brd);border-top:none;border-radius:0 0 var(--radm) var(--radm);margin-top:-4px">
+          <div style="font-size:11px;font-weight:700;color:var(--txm);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Escolher banco</div>
+          <div id="inline-bank-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          <div style="margin-top:10px;display:flex;gap:6px;align-items:center">
+            <input id="inline-bank-custom" class="finput" placeholder="Nome personalizado" style="flex:1;font-size:12px;padding:7px 10px"/>
+            <input type="color" id="inline-bank-color" value="#6B7280" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer"/>
+            <button onclick="inlineAddCustomBank()" style="background:var(--g);color:#fff;border:none;padding:8px 12px;border-radius:var(--rads);font-size:12px;font-weight:700;cursor:pointer">＋</button>
+          </div>
+        </div>
       </div>
       <div class="frow">
         <label class="flabel">Observação (opcional)</label>
@@ -622,7 +632,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 </div>
 
 <!-- LICENSE ACTIVATION MODAL -->
-<div class="fb-ov hidden" id="license-ov">
+<div class="fb-ov hidden" id="license-ov" onclick="if(event.target===this)doLogout()">
   <div class="fb-box" style="max-width:360px">
     <div class="fb-logo" style="font-size:32px">🔑</div>
     <div class="fb-title">Ativar Control+</div>
@@ -676,6 +686,71 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       </div>
       <button onclick="loadAdminKeys()" style="margin-top:10px;background:var(--surf2);color:var(--txm);border:1px solid var(--brd);padding:8px 16px;border-radius:var(--rads);font-size:12px;cursor:pointer;width:100%">🔄 Atualizar lista</button>
     </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="fb-ov hidden" id="settings-ov" onclick="if(event.target===this)closeSettings()">
+  <div class="fb-box" style="max-width:400px;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="fb-title" style="margin:0">⚙️ Configurações</div>
+      <button onclick="closeSettings()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--txm)">✕</button>
+    </div>
+
+    <!-- TEMA: COR PRINCIPAL -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">🎨 Cor principal do app</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px" id="theme-color-btns">
+        <!-- renderizado por JS -->
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+        <label style="font-size:12px;color:var(--txm)">Personalizada:</label>
+        <input type="color" id="settings-custom-color" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:none" oninput="applyThemeColor(this.value)"/>
+      </div>
+    </div>
+
+    <!-- MODO ESCURO/CLARO -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">🌗 Tema de cores</div>
+      <div style="display:flex;gap:8px">
+        <button id="theme-sys-btn" onclick="setThemeMode('system')" style="flex:1;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">🌐 Sistema</button>
+        <button id="theme-light-btn" onclick="setThemeMode('light')" style="flex:1;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">☀️ Claro</button>
+        <button id="theme-dark-btn" onclick="setThemeMode('dark')" style="flex:1;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">🌙 Escuro</button>
+      </div>
+    </div>
+
+    <!-- FONTE -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">🔤 Fonte</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="setFont('system-ui,-apple-system,sans-serif')" id="font-sys-btn" style="flex:1;min-width:80px;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">Padrão</button>
+        <button onclick="setFont('Inter,sans-serif')" id="font-inter-btn" style="flex:1;min-width:80px;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx);font-family:Inter,sans-serif">Inter</button>
+        <button onclick="setFont('\'Courier New\',monospace')" id="font-mono-btn" style="flex:1;min-width:80px;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx);font-family:monospace">Mono</button>
+      </div>
+    </div>
+
+    <!-- TAMANHO DA FONTE -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">🔠 Tamanho do texto</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="setFontSize('14px')" id="fs-sm-btn" style="flex:1;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:11px;font-weight:600;color:var(--tx)">Pequeno</button>
+        <button onclick="setFontSize('15px')" id="fs-md-btn" style="flex:1;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:13px;font-weight:600;color:var(--tx)">Médio</button>
+        <button onclick="setFontSize('17px')" id="fs-lg-btn" style="flex:1;padding:9px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:15px;font-weight:600;color:var(--tx)">Grande</button>
+      </div>
+    </div>
+
+    <!-- BORDAS -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">📐 Estilo dos cantos</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="setBorderRadius('6px','10px','16px')" id="radius-sq-btn" style="flex:1;padding:9px;border-radius:6px;border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">Quadrado</button>
+        <button onclick="setBorderRadius('10px','14px','20px')" id="radius-md-btn" style="flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">Suave</button>
+        <button onclick="setBorderRadius('16px','20px','28px')" id="radius-round-btn" style="flex:1;padding:9px;border-radius:16px;border:1.5px solid var(--brd);background:var(--surf2);cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">Arredondado</button>
+      </div>
+    </div>
+
+    <!-- RESET -->
+    <button onclick="resetSettings()" style="width:100%;padding:11px;border-radius:var(--radm);border:1.5px dashed var(--brd);background:transparent;cursor:pointer;font-size:13px;color:var(--txm);font-weight:600">🔄 Restaurar padrão</button>
   </div>
 </div>
 
@@ -767,6 +842,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
           <div class="user-menu-email" id="user-menu-email"></div>
           <div class="user-menu-item" onclick="forceSyncNow()">🔄 Sincronizar agora</div>
           <div class="user-menu-item" onclick="openApiModal()">🤖 Configurar IA</div>
+          <div class="user-menu-item" onclick="closeUserMenu();openSettings()">⚙️ Configurações</div>
           <div class="user-menu-item" id="adm-menu-btn" style="display:none" onclick="closeUserMenu();openAdminPanel()">🛡️ Painel Admin</div>
           <div class="user-menu-item" id="license-info-item" onclick="closeUserMenu();showLicenseInfo()">🔑 Minha licença</div>
           <div class="user-menu-item danger" onclick="doLogout()">🚪 Sair da conta</div>
@@ -1356,17 +1432,52 @@ async function doLogout() {
 }
 
 function clearLocalData() {
-  // Remove todas as transações de todos os meses
+  // Remove todas as transações, bills, notificações e estado local
   const toRemove = [];
   for(let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if(k && (k.startsWith('cp_txs_') || k === 'cp_period' || k === 'cp_last_save' || k === 'cp_bills')) {
-      toRemove.push(k);
-    }
+    if(k && (
+      k.startsWith('cp_txs_') ||
+      k.startsWith('cp_notif_') ||
+      k === 'cp_period' ||
+      k === 'cp_last_save' ||
+      k === 'cp_bills'
+    )) toRemove.push(k);
   }
   toRemove.forEach(k => localStorage.removeItem(k));
-  // Reseta período para o mês atual na tela
+  // Reseta estado em memória
   S.period = currentYM();
+  S.filter = 'todos';
+  S.editId = null;
+  // Limpa UI de todas as abas
+  clearAllTabsUI();
+}
+
+function clearAllTabsUI() {
+  // Home
+  try { renderHome(); } catch(e){}
+  // Chat IA — limpa mensagens
+  try {
+    const msgs = document.getElementById('messages');
+    if(msgs) msgs.innerHTML = '';
+  } catch(e){}
+  // Contas
+  try {
+    const billsEl = document.getElementById('bills-inner');
+    if(billsEl) billsEl.innerHTML = '';
+  } catch(e){}
+  // Dashboard
+  try {
+    const dashEl = document.getElementById('dash-scroll');
+    if(dashEl) dashEl.innerHTML = '';
+  } catch(e){}
+  // Extrato
+  try {
+    const extEl = document.getElementById('ext-list');
+    if(extEl) extEl.innerHTML = '';
+  } catch(e){}
+  // Fecha qualquer modal aberto
+  document.querySelectorAll('.modal-ov').forEach(el => el.classList.remove('open'));
 }
 
 // ══ LICENSE SYSTEM ══
@@ -1433,6 +1544,164 @@ function openAdminPanel() {
   if(!fbUser || fbUser.email !== ADMIN_EMAIL) { showToast('Acesso negado', 'err'); return; }
   document.getElementById('admin-ov').classList.remove('hidden');
   loadAdminKeys();
+}
+
+/* ===== SETTINGS / CUSTOMIZAÇÃO ===== */
+const THEME_PRESETS = [
+  {name:'Verde',   color:'#1D9E75'},
+  {name:'Azul',    color:'#3B82F6'},
+  {name:'Roxo',    color:'#8B5CF6'},
+  {name:'Rosa',    color:'#EC4899'},
+  {name:'Laranja', color:'#F97316'},
+  {name:'Vermelho',color:'#EF4444'},
+  {name:'Ciano',   color:'#06B6D4'},
+  {name:'Amarelo', color:'#EAB308'},
+];
+
+function openSettings() {
+  document.getElementById('settings-ov').classList.remove('hidden');
+  renderSettingsUI();
+}
+function closeSettings() {
+  document.getElementById('settings-ov').classList.add('hidden');
+}
+
+function renderSettingsUI() {
+  // Color presets
+  const cfg = loadSettingsCfg();
+  const presetEl = document.getElementById('theme-color-btns');
+  if(presetEl) {
+    presetEl.innerHTML = THEME_PRESETS.map(p => {
+      const isSel = cfg.accentColor === p.color;
+      return `<button onclick="applyThemeColor('${p.color}')" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:20px;border:2px solid ${isSel ? p.color : 'var(--brd)'};background:${isSel ? p.color+'22' : 'var(--surf2)'};cursor:pointer;font-size:12px;font-weight:600;color:var(--tx)">
+        <span style="width:12px;height:12px;border-radius:50%;background:${p.color};border:1.5px solid rgba(0,0,0,.12)"></span>${p.name}
+      </button>`;
+    }).join('');
+  }
+  const customEl = document.getElementById('settings-custom-color');
+  if(customEl) customEl.value = cfg.accentColor || '#1D9E75';
+  // Theme mode buttons
+  ['sys','light','dark'].forEach(m => {
+    const b = document.getElementById(`theme-${m}-btn`);
+    if(b) b.style.borderColor = cfg.themeMode===(m==='sys'?'system':m) ? 'var(--g)' : 'var(--brd)';
+  });
+  // Font buttons
+  ['sys','inter','mono'].forEach(id => {
+    const b = document.getElementById(`font-${id}-btn`);
+    if(b) b.style.borderColor = 'var(--brd)';
+  });
+  const fMap = {'system-ui,-apple-system,sans-serif':'sys','Inter,sans-serif':'inter','\'Courier New\',monospace':'mono'};
+  const fBtn = document.getElementById('font-'+(fMap[cfg.font]||'sys')+'-btn');
+  if(fBtn) fBtn.style.borderColor = 'var(--g)';
+  // Font size
+  const fsMap = {'14px':'sm','15px':'md','17px':'lg'};
+  ['sm','md','lg'].forEach(s => {
+    const b = document.getElementById(`fs-${s}-btn`);
+    if(b) b.style.borderColor = cfg.fontSize===(s==='sm'?'14px':s==='md'?'15px':'17px') ? 'var(--g)' : 'var(--brd)';
+  });
+  // Border radius
+  const rMap = {'6px':'sq','10px':'md','16px':'round'};
+  ['sq','md','round'].forEach(r => {
+    const b = document.getElementById(`radius-${r}-btn`);
+    if(b) b.style.borderColor = rMap[cfg.rads||'10px']===r ? 'var(--g)' : 'var(--brd)';
+  });
+}
+
+function loadSettingsCfg() {
+  try { return JSON.parse(localStorage.getItem('cp_settings')||'{}'); } catch(e){ return {}; }
+}
+function saveSettingsCfg(obj) {
+  const cur = loadSettingsCfg();
+  localStorage.setItem('cp_settings', JSON.stringify({...cur, ...obj}));
+}
+
+function applyThemeColor(hex) {
+  // Derive light variant (20% opacity bg) and dark variant
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const light = `rgba(${r},${g},${b},0.12)`;
+  const dark  = `rgba(${r},${g},${b},0.85)`;
+  document.documentElement.style.setProperty('--g', hex);
+  document.documentElement.style.setProperty('--gl', light);
+  document.documentElement.style.setProperty('--gd', dark);
+  document.documentElement.style.setProperty('--b', hex);
+  document.documentElement.style.setProperty('--bl', light);
+  document.documentElement.style.setProperty('--bd', dark);
+  saveSettingsCfg({accentColor: hex});
+  renderSettingsUI();
+  showToast('🎨 Cor aplicada!', 'ok');
+}
+
+function setThemeMode(mode) {
+  saveSettingsCfg({themeMode: mode});
+  const root = document.documentElement;
+  if(mode === 'dark') {
+    root.setAttribute('data-theme','dark');
+    applyDarkVars();
+  } else if(mode === 'light') {
+    root.setAttribute('data-theme','light');
+    applyLightVars();
+  } else {
+    root.removeAttribute('data-theme');
+    if(window.matchMedia('(prefers-color-scheme:dark)').matches) applyDarkVars(); else applyLightVars();
+  }
+  renderSettingsUI();
+}
+
+function applyLightVars() {
+  const r = document.documentElement;
+  r.style.setProperty('--bg','#F0F2F5');
+  r.style.setProperty('--surf','#FFFFFF');
+  r.style.setProperty('--surf2','#F8F9FA');
+  r.style.setProperty('--tx','#111827');
+  r.style.setProperty('--txm','#6B7280');
+  r.style.setProperty('--brd','#E5E7EB');
+}
+function applyDarkVars() {
+  const r = document.documentElement;
+  r.style.setProperty('--bg','#0D1117');
+  r.style.setProperty('--surf','#161B22');
+  r.style.setProperty('--surf2','#1C2128');
+  r.style.setProperty('--tx','#E6EDF3');
+  r.style.setProperty('--txm','#8B949E');
+  r.style.setProperty('--brd','#30363D');
+}
+
+function setFont(family) {
+  document.documentElement.style.setProperty('--font', family);
+  saveSettingsCfg({font: family});
+  renderSettingsUI();
+}
+
+function setFontSize(size) {
+  document.documentElement.style.setProperty('font-size', size);
+  saveSettingsCfg({fontSize: size});
+  renderSettingsUI();
+}
+
+function setBorderRadius(rads, radm, radf) {
+  const r = document.documentElement;
+  r.style.setProperty('--rads', rads);
+  r.style.setProperty('--radm', radm);
+  r.style.setProperty('--radf', radf);
+  saveSettingsCfg({rads, radm, radf});
+  renderSettingsUI();
+}
+
+function resetSettings() {
+  localStorage.removeItem('cp_settings');
+  document.documentElement.removeAttribute('data-theme');
+  document.documentElement.removeAttribute('style');
+  showToast('🔄 Padrão restaurado!', 'ok');
+  renderSettingsUI();
+}
+
+function applyStoredSettings() {
+  const cfg = loadSettingsCfg();
+  if(cfg.accentColor) applyThemeColor(cfg.accentColor);
+  if(cfg.themeMode) setThemeMode(cfg.themeMode);
+  if(cfg.font) setFont(cfg.font);
+  if(cfg.fontSize) setFontSize(cfg.fontSize);
+  if(cfg.rads) setBorderRadius(cfg.rads, cfg.radm||'14px', cfg.radf||'20px');
 }
 
 async function adminGenKey() {
@@ -1643,8 +1912,9 @@ const CATS = [
   {id:'contas',      e:'📋', n:'Contas',      c:'#F97316'},
   {id:'fatura',      e:'💳', n:'Fat. Cartão', c:'#6366F1'},
   {id:'filho',       e:'👶', n:'Filho',       c:'#F472B6'},
-  {id:'investimento',e:'📈', n:'Investimento',c:'#059669'},
-  {id:'outros',      e:'📦', n:'Outros',      c:'#6B7280'},
+  {id:'investimento',   e:'📈', n:'Investimento',   c:'#059669'},
+  {id:'outras-receitas',e:'💵', n:'Outras Receitas',c:'#16A34A'},
+  {id:'outros',         e:'📦', n:'Outros',         c:'#6B7280'},
 ];
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
 
@@ -1978,9 +2248,61 @@ function renderCardPicker() {
       <span class="card-dot" style="background:${col}"></span>${c.name}
     </div>`;
   }).join('');
-  html += `<div class="card-chip card-chip-add" onclick="closeTxModal();openCardsMgr()">＋ Gerenciar</div>`;
+  html += `<div class="card-chip card-chip-add" onclick="toggleInlineBankPanel()" id="inline-add-btn">＋ Banco</div>`;
   picker.innerHTML = html;
   if(!selId && cards.length > 0) selectCard(cards[0].id);
+  renderInlineBankGrid();
+}
+
+function toggleInlineBankPanel() {
+  const panel = document.getElementById('inline-bank-panel');
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  const btn = document.getElementById('inline-add-btn');
+  if(btn) btn.classList.toggle('sel', !isOpen);
+}
+
+function renderInlineBankGrid() {
+  const grid = document.getElementById('inline-bank-grid');
+  if(!grid) return;
+  const existing = getCards().map(c => c.name.toLowerCase());
+  grid.innerHTML = KNOWN_BANKS.map(b => {
+    const already = existing.includes(b.name.toLowerCase());
+    return `<button onclick="inlineAddBank('${b.name}','${b.color}')" style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:20px;border:1.5px solid ${already?'var(--g)':'var(--brd)'};background:${already?'var(--gl)':'var(--surf)'};cursor:pointer;font-size:11px;font-weight:600;color:var(--tx)">
+      <span style="width:9px;height:9px;border-radius:50%;background:${b.color};flex-shrink:0"></span>
+      ${b.name}${already?' ✓':''}
+    </button>`;
+  }).join('');
+}
+
+function inlineAddBank(name, color) {
+  const cards = getCards();
+  if(cards.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    // Já existe: apenas seleciona o cartão
+    const existing = cards.find(c => c.name.toLowerCase() === name.toLowerCase());
+    selectCard(existing.id);
+    renderCardPicker();
+    document.getElementById('inline-bank-panel').style.display = 'none';
+    showToast(`💳 ${name} selecionado`, 'ok');
+    return;
+  }
+  cards.push({ id: Date.now(), name, color });
+  saveCards(cards);
+  renderCardPicker();
+  // Seleciona o recém-adicionado
+  const added = getCards().find(c => c.name.toLowerCase() === name.toLowerCase());
+  if(added) selectCard(added.id);
+  document.getElementById('inline-bank-panel').style.display = 'none';
+  showToast(`✅ ${name} adicionado!`, 'ok');
+}
+
+function inlineAddCustomBank() {
+  const name = document.getElementById('inline-bank-custom').value.trim();
+  if(!name) { showToast('Digite o nome do banco', 'err'); return; }
+  const color = document.getElementById('inline-bank-color').value || '#6B7280';
+  inlineAddBank(name, color);
+  document.getElementById('inline-bank-custom').value = '';
 }
 
 function selectCard(id) {
@@ -2276,7 +2598,14 @@ async function sendMsg() {
   const txt=inp.value.trim(); if(!txt) return;
   inp.value=''; addMsg(txt,true);
   if(!S.apiKey) { addMsg('⚠️ Assistente IA não configurado. <b onclick="openApiModal()" style="color:var(--g);cursor:pointer">Toque aqui para configurar</b> ou use o 🔑 no cabeçalho.',false); return; }
-  if(!S.online) { addMsg('📵 Sem conexão com a internet. A IA está indisponível, mas seus dados estão salvos.',false); return; }
+  if(!S.online) {
+    // Enfileira mensagem para processar quando voltar online
+    const queue = JSON.parse(localStorage.getItem('cp_ai_queue')||'[]');
+    queue.push({txt, ts: Date.now()});
+    localStorage.setItem('cp_ai_queue', JSON.stringify(queue));
+    addMsg('📵 Sem internet agora. Sua mensagem foi salva e será processada quando a conexão voltar.',false);
+    return;
+  }
   S.loading=true; showTyping();
 
   const sys=`Você é o assistente financeiro do Control+. Responda SEMPRE em português brasileiro.
@@ -2907,6 +3236,7 @@ async function exportExcel() {
 
 updatePeriodUI();
 renderHome();
+applyStoredSettings();
 
 // Welcome chat message
 (function(){
@@ -3312,8 +3642,29 @@ window.addEventListener('online', () => {
   S.online = true;
   document.getElementById('offbanner').classList.remove('show');
   if(fbUser && !fbListener) startRealtimeSync();
-  if(fbUser) scheduleCloudSave(); // push any pending local changes
+  if(fbUser) scheduleCloudSave();
+  // Processa fila de mensagens IA que ficaram pendentes offline
+  processAIQueue();
 });
+
+async function processAIQueue() {
+  const queue = JSON.parse(localStorage.getItem('cp_ai_queue')||'[]');
+  if(!queue.length || !S.apiKey) return;
+  localStorage.removeItem('cp_ai_queue');
+  addMsg(`🔄 Conexão restaurada! Processando ${queue.length} mensagem${queue.length>1?'s':''} pendente${queue.length>1?'s':''}...`, false);
+  for(const item of queue) {
+    // Reenviar como se o usuário tivesse digitado agora
+    const inp = document.getElementById('chat-input');
+    if(inp) inp.value = item.txt;
+    await new Promise(r => setTimeout(r, 500));
+    sendChat();
+    // Aguarda resposta antes do próximo (máx 30s)
+    await new Promise(r => {
+      const t = setTimeout(r, 30000);
+      const check = setInterval(() => { if(!S.loading){ clearInterval(check); clearTimeout(t); r(); } }, 500);
+    });
+  }
+}
 window.addEventListener('offline', () => {
   S.online = false;
   document.getElementById('offbanner').classList.add('show');
@@ -3337,24 +3688,24 @@ window.addEventListener('offline', () => {
 })();
 
 // ══ NOTIFICAÇÕES DE VENCIMENTO ══
-const BILL_NOTIF_DAYS = [10, 7, 5, 3, 1, 0]; // 0 = vence hoje
+const BILL_NOTIF_DAYS = [5, 3, 1, 0]; // 0 = vence hoje
 
-function getBillNotifKey(billId, days) {
-  return `cp_notif_${billId}_${days}`;
+function getBillNotifKey(id, days) {
+  return `cp_notif_${id}_${days}`;
 }
 
 function getBillNotifTitle(days) {
-  if(days === 0) return '🚨 VENCIMENTO HOJE!';
+  if(days === 0) return '🚨 Vencimento HOJE!';
   if(days === 1) return '⏰ Vence amanhã!';
   return `⚠️ Vence em ${days} dias`;
 }
 
-function getBillNotifBody(bill, days) {
-  const val = bill.amount > 0 ? ` — R$ ${fmtB(bill.amount)}` : '';
-  const due = bill.dueDate ? bill.dueDate.split('-').reverse().join('/') : '';
-  if(days === 0) return `${bill.desc}${val} vence HOJE (${due})! Não perca o prazo.`;
-  if(days === 1) return `${bill.desc}${val} vence amanhã (${due}).`;
-  return `${bill.desc}${val} vence em ${days} dias (${due}).`;
+function getBillNotifBody(desc, amount, dueStr, days) {
+  const val = amount > 0 ? ` — R$ ${fmtB(amount)}` : '';
+  const due = dueStr ? dueStr.replace(/-/g,'/').split('/').reverse().join('/') : '';
+  if(days === 0) return `${desc}${val} vence HOJE (${due})! Não perca o prazo.`;
+  if(days === 1) return `${desc}${val} vence amanhã (${due}).`;
+  return `${desc}${val} vence em ${days} dias (${due}).`;
 }
 
 async function requestNotifPermission() {
@@ -3381,31 +3732,48 @@ function showBillNotification(title, body, billId) {
 }
 
 function checkBillNotifications() {
-  const bills = getBills();
   const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().slice(0,10);
   let showed = 0;
 
-  bills.forEach(bill => {
-    if(bill.paid) return;
-    const due = new Date(bill.dueDate + 'T00:00:00');
+  function checkItem(id, desc, amount, dueDateISO, paid) {
+    if(paid) return;
+    if(!dueDateISO) return;
+    // dueDateISO pode ser 'YYYY-MM-DD' (contas) ou 'DD/MM/YYYY' (lançamentos)
+    let dueISO = dueDateISO;
+    if(dueDateISO.includes('/')) {
+      const [d,m,y] = dueDateISO.split('/');
+      dueISO = `${y}-${m}-${d}`;
+    }
+    const due = new Date(dueISO + 'T00:00:00');
     const daysLeft = Math.ceil((due - today) / 86400000);
 
     BILL_NOTIF_DAYS.forEach(d => {
-      if(daysLeft !== d) return; // só notifica no dia exato
-      const key = getBillNotifKey(bill.id, d);
-      const lastNotif = localStorage.getItem(key);
-      const todayStr = today.toISOString().slice(0,10);
-      if(lastNotif === todayStr) return; // já notificou hoje
-
+      if(daysLeft !== d) return;
+      const key = getBillNotifKey(id, d);
+      if(localStorage.getItem(key) === todayStr) return;
       localStorage.setItem(key, todayStr);
       showBillNotification(
         getBillNotifTitle(d),
-        getBillNotifBody(bill, d),
-        bill.id
+        getBillNotifBody(desc, amount, dueISO, d),
+        id
       );
       showed++;
     });
+  }
+
+  // ── Contas (aba Contas) ──
+  getBills().forEach(bill => {
+    checkItem(bill.id, bill.desc, bill.amount||0, bill.dueDate, bill.paid);
   });
+
+  // ── Lançamentos com vencimento ──
+  getAllPeriods().forEach(ym => {
+    loadPeriod(ym).forEach(tx => {
+      if(tx.due) checkItem('tx_'+tx.id, tx.desc, tx.amount||0, tx.due, false);
+    });
+  });
+
   return showed;
 }
 
@@ -3433,8 +3801,8 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-8';
-const BILL_DAYS = [10,7,5,3,1,0];
+const C = 'cp-v4-10';
+const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.add(self.location.href)));
