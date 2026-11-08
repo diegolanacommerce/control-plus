@@ -520,7 +520,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 <div class="toast" id="toast"></div>
 
 <!-- API MODAL -->
-<div class="api-ov" id="api-ov">
+<div class="api-ov" id="api-ov" onclick="if(event.target===this && S.apiKey)document.getElementById('api-ov').classList.add('hidden')">
   <div class="api-box">
     <div class="api-logo">C+</div>
     <div class="api-title">Ativar assistente IA</div>
