@@ -389,10 +389,11 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 /* ── CARD PICKER ── */
 .card-picker{display:none;flex-wrap:wrap;gap:7px;margin-top:8px;padding:10px;background:var(--surf2);border:1px solid var(--brd);border-radius:var(--radm)}
 .card-picker.show{display:flex}
-.card-chip{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf);cursor:pointer;font-size:12px;font-weight:700;color:var(--tx);transition:all .15s;white-space:nowrap}
+.card-chip{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf);cursor:pointer;font-size:12px;font-weight:700;color:var(--tx);transition:all .15s;white-space:nowrap}
 .card-chip.sel{border-color:var(--b);background:var(--bl);color:var(--bd)}
 .card-chip-add{border-style:dashed;color:var(--txm)}
 .card-chip-add:hover{border-color:var(--g);color:var(--g)}
+.card-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(0,0,0,.12)}
 /* ── MANAGE CARDS MODAL ── */
 .cards-mgr-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
 .cards-mgr-ov.hidden{display:none}
@@ -553,16 +554,14 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
         <label class="flabel">Descrição</label>
         <input class="finput" id="tx-desc" type="text" placeholder="Ex: Almoço, salário, academia..."/>
       </div>
-      <div class="frow">
-        <label class="flabel">Valor (R$)</label>
-        <input class="finput" id="tx-amount" type="number" step="0.01" min="0" placeholder="0,00" inputmode="decimal"/>
-      </div>
+      <!-- data lançamento: campo oculto, preenchido automaticamente -->
+      <input type="hidden" id="tx-date"/>
       <div class="frow-2">
-        <div>
-          <label class="flabel">Data lançamento</label>
-          <input class="finput" id="tx-date" type="date" readonly style="background:var(--surf2);color:var(--txm);cursor:default"/>
+        <div style="flex:1">
+          <label class="flabel">Valor (R$)</label>
+          <input class="finput" id="tx-amount" type="number" step="0.01" min="0" placeholder="0,00" inputmode="decimal"/>
         </div>
-        <div>
+        <div style="flex:1">
           <label class="flabel">Vencimento <span style="color:var(--r)">*</span></label>
           <input class="finput" id="tx-due" type="date"/>
         </div>
@@ -607,12 +606,17 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       <div class="cards-mgr-title">💳 Meus Cartões</div>
       <button onclick="closeCardsMgr()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--txm)">✕</button>
     </div>
-    <div class="cards-mgr-sub">Adicione seus cartões de crédito para identificar os gastos.</div>
+    <div class="cards-mgr-sub">Toque em um banco para adicionar rapidamente, ou digite um nome personalizado.</div>
+    <!-- Bancos rápidos -->
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px" id="bank-quick-btns"></div>
     <div id="cards-list"></div>
     <div class="card-add-row">
-      <button class="card-add-emoji" id="card-emoji-btn" onclick="cycleCardEmoji()" title="Mudar emoji">💳</button>
-      <input class="card-add-input" id="card-name-input" placeholder="Nome do cartão (ex: Nubank, Itaú...)" onkeydown="if(event.key==='Enter')addCard()"/>
-      <button class="card-add-btn" onclick="addCard()">+ Adicionar</button>
+      <div id="card-color-preview" style="width:44px;height:44px;border-radius:var(--radm);border:1.5px solid var(--brd);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer" onclick="document.getElementById('card-color-inp').click()">
+        <div id="card-color-dot" style="width:20px;height:20px;border-radius:50%;background:#6B7280;border:2px solid rgba(0,0,0,.12)"></div>
+        <input type="color" id="card-color-inp" value="#6B7280" style="display:none" oninput="document.getElementById('card-color-dot').style.background=this.value"/>
+      </div>
+      <input class="card-add-input" id="card-name-input" placeholder="Nome personalizado..." onkeydown="if(event.key==='Enter')addCard()"/>
+      <button class="card-add-btn" onclick="addCard()">+ Add</button>
     </div>
   </div>
 </div>
@@ -1854,8 +1858,31 @@ function setTxCat(c) {
   if(el) el.classList.add('sel');
 }
 // ══ CARDS SYSTEM ══
-const CARD_EMOJIS = ['💳','🟣','🟢','🔵','🟡','🟠','🔴','⚫','🏦','💜','💚','💙','💛','🧡','❤️'];
-let _cardEmojiIdx = 0;
+// Bancos conhecidos com cores oficiais
+const KNOWN_BANKS = [
+  {name:'Nubank',    color:'#820AD1'},
+  {name:'Itaú',      color:'#F97316'},
+  {name:'Bradesco',  color:'#CC0000'},
+  {name:'Santander', color:'#EC0000'},
+  {name:'Banco do Brasil', color:'#F9A800'},
+  {name:'Caixa',     color:'#005CA9'},
+  {name:'Inter',     color:'#FF6B00'},
+  {name:'C6 Bank',   color:'#1A1A1A'},
+  {name:'BTG',       color:'#000000'},
+  {name:'XP',        color:'#00C86F'},
+  {name:'PagBank',   color:'#02CC7D'},
+  {name:'Mercado Pago', color:'#009EE3'},
+  {name:'Sicoob',    color:'#007C5A'},
+  {name:'Sicredi',   color:'#8DC63F'},
+  {name:'Safra',     color:'#003366'},
+];
+
+function bankColor(name) {
+  if(!name) return '#6B7280';
+  const n = name.toLowerCase();
+  const b = KNOWN_BANKS.find(b => n.includes(b.name.toLowerCase().split(' ')[0]));
+  return b ? b.color : '#6B7280';
+}
 
 function getCards() {
   try { return JSON.parse(localStorage.getItem('cp_cards')||'[]'); } catch(e){ return []; }
@@ -1864,29 +1891,51 @@ function saveCards(arr) { localStorage.setItem('cp_cards', JSON.stringify(arr));
 
 function openCardsMgr() {
   document.getElementById('cards-mgr-ov').classList.remove('hidden');
+  renderBankQuickBtns();
   renderCardsList();
 }
 function closeCardsMgr() {
   document.getElementById('cards-mgr-ov').classList.add('hidden');
-  renderCardPicker(); // atualiza picker após gerenciar
+  renderCardPicker();
 }
 
-function cycleCardEmoji() {
-  _cardEmojiIdx = (_cardEmojiIdx + 1) % CARD_EMOJIS.length;
-  document.getElementById('card-emoji-btn').textContent = CARD_EMOJIS[_cardEmojiIdx];
+function renderBankQuickBtns() {
+  const el = document.getElementById('bank-quick-btns');
+  if(!el) return;
+  const existing = getCards().map(c=>c.name.toLowerCase());
+  el.innerHTML = KNOWN_BANKS.map(b => {
+    const already = existing.includes(b.name.toLowerCase());
+    return `<button onclick="quickAddBank('${b.name}','${b.color}')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1.5px solid ${already?'var(--g)':'var(--brd)'};background:${already?'var(--gl)':'var(--surf2)'};cursor:pointer;font-size:12px;font-weight:600;color:var(--tx);transition:all .15s">
+      <span style="width:10px;height:10px;border-radius:50%;background:${b.color};flex-shrink:0;border:1.5px solid rgba(0,0,0,.12)"></span>
+      ${b.name}${already?' ✓':''}
+    </button>`;
+  }).join('');
+}
+
+function quickAddBank(name, color) {
+  const cards = getCards();
+  if(cards.find(c=>c.name.toLowerCase()===name.toLowerCase())) {
+    showToast('Cartão já adicionado', 'err'); return;
+  }
+  cards.push({ id: Date.now(), name, color });
+  saveCards(cards);
+  renderBankQuickBtns();
+  renderCardsList();
+  showToast(`✅ ${name} adicionado!`, 'ok');
 }
 
 function addCard() {
   const name = document.getElementById('card-name-input').value.trim();
   if(!name) { showToast('Digite o nome do cartão', 'err'); return; }
-  const emoji = document.getElementById('card-emoji-btn').textContent;
+  const color = document.getElementById('card-color-inp').value || bankColor(name);
   const cards = getCards();
   if(cards.find(c=>c.name.toLowerCase()===name.toLowerCase())) { showToast('Cartão já existe', 'err'); return; }
-  cards.push({ id: Date.now(), name, emoji });
+  cards.push({ id: Date.now(), name, color });
   saveCards(cards);
   document.getElementById('card-name-input').value = '';
-  _cardEmojiIdx = 0;
-  document.getElementById('card-emoji-btn').textContent = CARD_EMOJIS[0];
+  document.getElementById('card-color-inp').value = '#6B7280';
+  document.getElementById('card-color-dot').style.background = '#6B7280';
+  renderBankQuickBtns();
   renderCardsList();
   showToast('✅ Cartão adicionado!', 'ok');
 }
@@ -1894,6 +1943,7 @@ function addCard() {
 function deleteCard(id) {
   const cards = getCards().filter(c => c.id !== id);
   saveCards(cards);
+  renderBankQuickBtns();
   renderCardsList();
   renderCardPicker();
   if(S.txCardId === id) { S.txCardId = null; }
@@ -1904,17 +1954,17 @@ function renderCardsList() {
   const list = document.getElementById('cards-list');
   if(!list) return;
   if(cards.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--txm);padding:8px 0">Nenhum cartão cadastrado ainda.</div>';
+    list.innerHTML = '<div style="font-size:12px;color:var(--txm);padding:8px 0 12px">Toque em um banco acima para adicionar.</div>';
     return;
   }
-  list.innerHTML = cards.map(c => `
-    <div class="card-item">
-      <div class="card-item-emoji">${c.emoji}</div>
-      <div class="card-item-info">
-        <div class="card-item-name">${c.name}</div>
-      </div>
+  list.innerHTML = cards.map(c => {
+    const col = c.color || bankColor(c.name);
+    return `<div class="card-item">
+      <div class="card-item-emoji"><span style="width:22px;height:22px;border-radius:50%;background:${col};display:inline-block;border:2px solid rgba(0,0,0,.12)"></span></div>
+      <div class="card-item-info"><div class="card-item-name">${c.name}</div></div>
       <button class="card-item-del" onclick="deleteCard(${c.id})">🗑</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderCardPicker() {
@@ -1922,24 +1972,23 @@ function renderCardPicker() {
   if(!picker) return;
   const cards = getCards();
   const selId = S.txCardId;
-  let html = cards.map(c => `
-    <div class="card-chip${selId===c.id?' sel':''}" onclick="selectCard(${c.id})">
-      ${c.emoji} ${c.name}
-    </div>`).join('');
-  html += `<div class="card-chip card-chip-add" onclick="closeNewTx();openCardsMgr()">＋ Gerenciar cartões</div>`;
+  let html = cards.map(c => {
+    const col = c.color || bankColor(c.name);
+    return `<div class="card-chip${selId===c.id?' sel':''}" onclick="selectCard(${c.id})">
+      <span class="card-dot" style="background:${col}"></span>${c.name}
+    </div>`;
+  }).join('');
+  html += `<div class="card-chip card-chip-add" onclick="closeTxModal();openCardsMgr()">＋ Gerenciar</div>`;
   picker.innerHTML = html;
-  // auto-select first if none selected
   if(!selId && cards.length > 0) selectCard(cards[0].id);
 }
 
 function selectCard(id) {
   S.txCardId = id;
-  document.querySelectorAll('#card-picker .card-chip').forEach(el => el.classList.remove('sel'));
-  // find chip by id
   const cards = getCards();
   const idx = cards.findIndex(c=>c.id===id);
   const chips = document.querySelectorAll('#card-picker .card-chip:not(.card-chip-add)');
-  if(chips[idx]) chips[idx].classList.add('sel');
+  chips.forEach((el,i) => el.classList.toggle('sel', i===idx));
 }
 
 function setTxPay(p) {
@@ -1975,7 +2024,7 @@ function saveTx() {
   let cardName = '';
   if(pay === 'cc' && S.txCardId) {
     const card = getCards().find(c=>c.id===S.txCardId);
-    if(card) cardName = card.emoji + ' ' + card.name;
+    if(card) cardName = card.name;
   }
   const tx = { id: S.editId||Date.now(), type:S.txType, amount, desc, cat:S.txCat, pay,
                 date:isoToBR(dateISO), due:isoToBR(dueISO), obs, emoji:cat.e,
@@ -2088,7 +2137,10 @@ function renderHome() {
       const isG=t.type==='gasto';
       const ibg=isG?'rgba(224,82,82,.1)':'rgba(29,158,117,.1)';
       const pcls=t.type==='receita'?'pill-rec':t.pay==='cc'?'pill-cc':t.pay==='pix'?'pill-pix':'pill-deb';
+      const cardObj = t.pay==='cc'&&t.card ? getCards().find(c=>c.name===t.card) : null;
+      const cardCol = cardObj ? (cardObj.color||bankColor(cardObj.name)) : null;
       const plbl=t.type==='receita'?'Receita':(t.pay==='cc'&&t.card?t.card:PAY_LBL[t.pay]||'');
+      const pillExtra = cardCol ? `<span style="width:8px;height:8px;border-radius:50%;background:${cardCol};display:inline-block;margin-right:3px;border:1px solid rgba(0,0,0,.15)"></span>` : '';
       return `<div class="tx-card-item" onclick="openEditTx(${t.id})">
         <div class="txi-icon" style="background:${ibg}">${t.emoji||'📦'}</div>
         <div class="txi-info">
@@ -2097,7 +2149,7 @@ function renderHome() {
         </div>
         <div class="txi-right">
           <div class="txi-amt" style="color:${isG?'var(--r)':'var(--g)'}">${isG?'−':'+'}${fmt(t.amount)}</div>
-          <div class="txi-pay"><span class="pill ${pcls}">${plbl}</span></div>
+          <div class="txi-pay"><span class="pill ${pcls}">${pillExtra}${plbl}</span></div>
         </div>
       </div>`;
     }).join('');
@@ -2588,7 +2640,10 @@ function renderExtract() {
       const isG=t.type==='gasto';
       const ibg=isG?'rgba(224,82,82,.1)':'rgba(29,158,117,.1)';
       const pcls=t.type==='receita'?'pill-rec':t.pay==='cc'?'pill-cc':t.pay==='pix'?'pill-pix':'pill-deb';
+      const cardObj2 = t.pay==='cc'&&t.card ? getCards().find(c=>c.name===t.card) : null;
+      const cardCol2 = cardObj2 ? (cardObj2.color||bankColor(cardObj2.name)) : null;
       const plbl=t.type==='receita'?'Receita':(t.pay==='cc'&&t.card?t.card:PAY_LBL[t.pay]||'');
+      const pillExtra2 = cardCol2 ? `<span style="width:8px;height:8px;border-radius:50%;background:${cardCol2};display:inline-block;margin-right:3px;border:1px solid rgba(0,0,0,.15)"></span>` : '';
       return`<div class="ext-tx" onclick="openEditTx(${t.id})">
         <div class="ext-tx-icon" style="background:${ibg}">${t.emoji||'📦'}</div>
         <div class="ext-tx-info">
@@ -2597,7 +2652,7 @@ function renderExtract() {
         </div>
         <div class="ext-tx-right">
           <div class="ext-tx-amt" style="color:${isG?'var(--r)':'var(--g)'}">${isG?'−':'+'}${fmt(t.amount)}</div>
-          <div class="ext-tx-pill"><span class="pill ${pcls}">${plbl}</span></div>
+          <div class="ext-tx-pill"><span class="pill ${pcls}">${pillExtra2}${plbl}</span></div>
         </div>
       </div>`;
     }).join('');
@@ -3378,7 +3433,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-7';
+const C = 'cp-v4-8';
 const BILL_DAYS = [10,7,5,3,1,0];
 
 self.addEventListener('install', e => {
