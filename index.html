@@ -3805,20 +3805,55 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-10';
+const C = 'cp-v4-11';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(C).then(c => c.add(self.location.href)));
-  self.skipWaiting();
+  // Pré-cacheia o app e ativa imediatamente sem esperar abas antigas fecharem
+  e.waitUntil(
+    caches.open(C).then(c => c.add(self.location.href)).then(() => self.skipWaiting())
+  );
 });
+
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))));
-  self.clients.claim();
+  // Remove todos os caches antigos e assume controle imediato de todas as abas
+  e.waitUntil(
+    caches.keys()
+      .then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Notifica todas as abas abertas para recarregar (nova versão disponível)
+        return self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => client.postMessage({ type: 'SW_UPDATED', version: C }));
+        });
+      })
+  );
 });
+
 self.addEventListener('fetch', e => {
-  if(e.request.url.includes('generativelanguage') || e.request.url.includes('openrouter.ai') || e.request.url.includes('fonts') || e.request.url.includes('firebase') || e.request.url.includes('gstatic')) return;
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match(e.request))));
+  // Nunca intercepta chamadas de API externas
+  const url = e.request.url;
+  if(url.includes('generativelanguage') || url.includes('openrouter.ai') ||
+     url.includes('fonts') || url.includes('firebase') || url.includes('gstatic') ||
+     url.includes('firestore') || url.includes('googleapis')) return;
+
+  // Estratégia NETWORK-FIRST: sempre busca versão mais nova da rede
+  // Só usa cache se estiver offline
+  e.respondWith(
+    fetch(e.request, { cache: 'no-store' })
+      .then(response => {
+        // Salva no cache a versão mais recente
+        if(response && response.status === 200 && e.request.method === 'GET') {
+          const clone = response.clone();
+          caches.open(C).then(c => c.put(e.request, clone));
+        }
+        return response;
+      })
+      .catch(() => {
+        // Offline: serve do cache
+        return caches.match(e.request);
+      })
+  );
 });
 
 // Notificações via periodicsync ou message
@@ -3891,6 +3926,17 @@ self.addEventListener('notificationclick', e => {
       });
     });
   }).catch(()=>{});
+
+  // Escuta mensagem do SW avisando que nova versão foi instalada → recarrega silenciosamente
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data && e.data.type === 'SW_UPDATED') {
+      // Pequeno delay para garantir que o SW terminou de ativar
+      setTimeout(() => {
+        showToast('🔄 App atualizado! Recarregando...', 'ok');
+        setTimeout(() => window.location.reload(), 1200);
+      }, 500);
+    }
+  });
 }
 
 // Inicia sistema de notificações
