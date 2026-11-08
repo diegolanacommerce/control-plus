@@ -386,6 +386,30 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 .pay-seg3{display:flex;gap:6px;margin-bottom:14px}
 .pay-seg3-btn{flex:1;padding:9px 0;font-size:12px;font-weight:700;font-family:var(--font);border:1.5px solid var(--brd);border-radius:var(--radm);background:var(--surf2);color:var(--txm);cursor:pointer;transition:all .15s}
 .pay-seg3-btn.sel{border-color:var(--g);background:var(--gl);color:var(--gd)}
+/* ── CARD PICKER ── */
+.card-picker{display:none;flex-wrap:wrap;gap:7px;margin-top:8px;padding:10px;background:var(--surf2);border:1px solid var(--brd);border-radius:var(--radm)}
+.card-picker.show{display:flex}
+.card-chip{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--radm);border:1.5px solid var(--brd);background:var(--surf);cursor:pointer;font-size:12px;font-weight:700;color:var(--tx);transition:all .15s;white-space:nowrap}
+.card-chip.sel{border-color:var(--b);background:var(--bl);color:var(--bd)}
+.card-chip-add{border-style:dashed;color:var(--txm)}
+.card-chip-add:hover{border-color:var(--g);color:var(--g)}
+/* ── MANAGE CARDS MODAL ── */
+.cards-mgr-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
+.cards-mgr-ov.hidden{display:none}
+.cards-mgr-box{background:var(--surf);border-radius:24px 24px 0 0;padding:20px 16px 32px;width:100%;max-width:430px;max-height:80vh;overflow-y:auto}
+.cards-mgr-title{font-size:16px;font-weight:800;color:var(--tx);margin-bottom:4px}
+.cards-mgr-sub{font-size:12px;color:var(--txm);margin-bottom:16px}
+.card-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surf2);border:1px solid var(--brd);border-radius:var(--radm);margin-bottom:8px}
+.card-item-emoji{font-size:22px;width:34px;text-align:center}
+.card-item-info{flex:1;min-width:0}
+.card-item-name{font-size:13px;font-weight:700;color:var(--tx)}
+.card-item-bank{font-size:11px;color:var(--txm)}
+.card-item-del{background:var(--rl);border:none;color:var(--rd);width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.card-add-row{display:flex;gap:8px;margin-top:12px}
+.card-add-emoji{width:44px;height:44px;border:1.5px solid var(--brd);border-radius:var(--radm);background:var(--surf2);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.card-add-input{flex:1;height:44px;border:1.5px solid var(--brd);border-radius:var(--radm);background:var(--surf2);padding:0 12px;font-size:13px;font-family:var(--font);color:var(--tx)}
+.card-add-input:focus{outline:none;border-color:var(--g)}
+.card-add-btn{height:44px;padding:0 14px;background:var(--g);color:#fff;border:none;border-radius:var(--radm);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
 .cat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
 .cat-chip{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border:1.5px solid var(--brd);border-radius:var(--radm);background:var(--surf2);cursor:pointer;transition:all .15s}
 .cat-chip.sel{border-color:var(--g);background:var(--gl)}
@@ -529,14 +553,18 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
         <label class="flabel">Descrição</label>
         <input class="finput" id="tx-desc" type="text" placeholder="Ex: Almoço, salário, academia..."/>
       </div>
+      <div class="frow">
+        <label class="flabel">Valor (R$)</label>
+        <input class="finput" id="tx-amount" type="number" step="0.01" min="0" placeholder="0,00" inputmode="decimal"/>
+      </div>
       <div class="frow-2">
         <div>
-          <label class="flabel">Valor (R$)</label>
-          <input class="finput" id="tx-amount" type="number" step="0.01" min="0" placeholder="0,00" inputmode="decimal"/>
+          <label class="flabel">Data lançamento</label>
+          <input class="finput" id="tx-date" type="date" readonly style="background:var(--surf2);color:var(--txm);cursor:default"/>
         </div>
         <div>
-          <label class="flabel">Data</label>
-          <input class="finput" id="tx-date" type="date"/>
+          <label class="flabel">Vencimento <span style="color:var(--r)">*</span></label>
+          <input class="finput" id="tx-due" type="date"/>
         </div>
       </div>
       <div class="frow">
@@ -550,6 +578,8 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
           <button class="pay-seg3-btn" id="psb-deb" onclick="setTxPay('deb')">🏦 Débito</button>
           <button class="pay-seg3-btn" id="psb-pix" onclick="setTxPay('pix')">⚡ Pix</button>
         </div>
+        <!-- Card picker — aparece ao selecionar Crédito -->
+        <div class="card-picker" id="card-picker"></div>
       </div>
       <div class="frow">
         <label class="flabel">Observação (opcional)</label>
@@ -566,6 +596,23 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
         </div>
       </div>
       <button class="btn-danger" id="btn-delete" style="display:none" onclick="showDel()">🗑️ Excluir lançamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANAGE CARDS MODAL -->
+<div class="cards-mgr-ov hidden" id="cards-mgr-ov">
+  <div class="cards-mgr-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+      <div class="cards-mgr-title">💳 Meus Cartões</div>
+      <button onclick="closeCardsMgr()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--txm)">✕</button>
+    </div>
+    <div class="cards-mgr-sub">Adicione seus cartões de crédito para identificar os gastos.</div>
+    <div id="cards-list"></div>
+    <div class="card-add-row">
+      <button class="card-add-emoji" id="card-emoji-btn" onclick="cycleCardEmoji()" title="Mudar emoji">💳</button>
+      <input class="card-add-input" id="card-name-input" placeholder="Nome do cartão (ex: Nubank, Itaú...)" onkeydown="if(event.key==='Enter')addCard()"/>
+      <button class="card-add-btn" onclick="addCard()">+ Adicionar</button>
     </div>
   </div>
 </div>
@@ -1551,6 +1598,7 @@ const S = {
   editId: null,
   txType: 'gasto',
   txPay: 'cc',
+  txCardId: null,
   txCat: 'alimentação',
   loading: false,
   online: navigator.onLine,
@@ -1740,10 +1788,12 @@ function openNewTx(type) {
   setTxType(type || 'gasto');
   document.getElementById('tx-desc').value = '';
   document.getElementById('tx-amount').value = '';
-  document.getElementById('tx-date').value = todayISO();
+  document.getElementById('tx-date').value = todayISO(); // automático
+  document.getElementById('tx-due').value = '';
   document.getElementById('tx-obs').value = '';
   setTxCat('alimentação');
-  setTxPay('cc');
+  S.txCardId = null;
+  setTxPay('cc'); // mostra picker automaticamente
   document.getElementById('tx-modal').classList.add('open');
   setTimeout(()=>document.getElementById('tx-desc').focus(), 300);
 }
@@ -1767,9 +1817,18 @@ function openEditTx(id) {
   setTxType(tx.type);
   document.getElementById('tx-desc').value = tx.desc;
   document.getElementById('tx-amount').value = tx.amount;
-  document.getElementById('tx-date').value = brToISO(tx.date);
+  document.getElementById('tx-date').value = brToISO(tx.date); // data lançamento
+  document.getElementById('tx-due').value = tx.due ? brToISO(tx.due) : '';
   document.getElementById('tx-obs').value = tx.obs||'';
   setTxCat(tx.cat);
+  // restore card selection if was credit
+  if(tx.pay === 'cc' && tx.card) {
+    const cards = getCards();
+    const found = cards.find(c => (c.emoji+' '+c.name) === tx.card);
+    S.txCardId = found ? found.id : null;
+  } else {
+    S.txCardId = null;
+  }
   setTxPay(tx.pay);
   document.getElementById('tx-modal').classList.add('open');
 }
@@ -1794,17 +1853,117 @@ function setTxCat(c) {
   const el=document.getElementById('cc-'+c);
   if(el) el.classList.add('sel');
 }
+// ══ CARDS SYSTEM ══
+const CARD_EMOJIS = ['💳','🟣','🟢','🔵','🟡','🟠','🔴','⚫','🏦','💜','💚','💙','💛','🧡','❤️'];
+let _cardEmojiIdx = 0;
+
+function getCards() {
+  try { return JSON.parse(localStorage.getItem('cp_cards')||'[]'); } catch(e){ return []; }
+}
+function saveCards(arr) { localStorage.setItem('cp_cards', JSON.stringify(arr)); }
+
+function openCardsMgr() {
+  document.getElementById('cards-mgr-ov').classList.remove('hidden');
+  renderCardsList();
+}
+function closeCardsMgr() {
+  document.getElementById('cards-mgr-ov').classList.add('hidden');
+  renderCardPicker(); // atualiza picker após gerenciar
+}
+
+function cycleCardEmoji() {
+  _cardEmojiIdx = (_cardEmojiIdx + 1) % CARD_EMOJIS.length;
+  document.getElementById('card-emoji-btn').textContent = CARD_EMOJIS[_cardEmojiIdx];
+}
+
+function addCard() {
+  const name = document.getElementById('card-name-input').value.trim();
+  if(!name) { showToast('Digite o nome do cartão', 'err'); return; }
+  const emoji = document.getElementById('card-emoji-btn').textContent;
+  const cards = getCards();
+  if(cards.find(c=>c.name.toLowerCase()===name.toLowerCase())) { showToast('Cartão já existe', 'err'); return; }
+  cards.push({ id: Date.now(), name, emoji });
+  saveCards(cards);
+  document.getElementById('card-name-input').value = '';
+  _cardEmojiIdx = 0;
+  document.getElementById('card-emoji-btn').textContent = CARD_EMOJIS[0];
+  renderCardsList();
+  showToast('✅ Cartão adicionado!', 'ok');
+}
+
+function deleteCard(id) {
+  const cards = getCards().filter(c => c.id !== id);
+  saveCards(cards);
+  renderCardsList();
+  renderCardPicker();
+  if(S.txCardId === id) { S.txCardId = null; }
+}
+
+function renderCardsList() {
+  const cards = getCards();
+  const list = document.getElementById('cards-list');
+  if(!list) return;
+  if(cards.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--txm);padding:8px 0">Nenhum cartão cadastrado ainda.</div>';
+    return;
+  }
+  list.innerHTML = cards.map(c => `
+    <div class="card-item">
+      <div class="card-item-emoji">${c.emoji}</div>
+      <div class="card-item-info">
+        <div class="card-item-name">${c.name}</div>
+      </div>
+      <button class="card-item-del" onclick="deleteCard(${c.id})">🗑</button>
+    </div>`).join('');
+}
+
+function renderCardPicker() {
+  const picker = document.getElementById('card-picker');
+  if(!picker) return;
+  const cards = getCards();
+  const selId = S.txCardId;
+  let html = cards.map(c => `
+    <div class="card-chip${selId===c.id?' sel':''}" onclick="selectCard(${c.id})">
+      ${c.emoji} ${c.name}
+    </div>`).join('');
+  html += `<div class="card-chip card-chip-add" onclick="closeNewTx();openCardsMgr()">＋ Gerenciar cartões</div>`;
+  picker.innerHTML = html;
+  // auto-select first if none selected
+  if(!selId && cards.length > 0) selectCard(cards[0].id);
+}
+
+function selectCard(id) {
+  S.txCardId = id;
+  document.querySelectorAll('#card-picker .card-chip').forEach(el => el.classList.remove('sel'));
+  // find chip by id
+  const cards = getCards();
+  const idx = cards.findIndex(c=>c.id===id);
+  const chips = document.querySelectorAll('#card-picker .card-chip:not(.card-chip-add)');
+  if(chips[idx]) chips[idx].classList.add('sel');
+}
+
 function setTxPay(p) {
   S.txPay = p;
   ['cc','deb','pix'].forEach(k=>document.getElementById('psb-'+k).classList.toggle('sel',k===p));
+  const picker = document.getElementById('card-picker');
+  if(picker) {
+    if(p === 'cc') {
+      picker.classList.add('show');
+      renderCardPicker();
+    } else {
+      picker.classList.remove('show');
+    }
+  }
 }
 function saveTx() {
   const desc = document.getElementById('tx-desc').value.trim();
   const amount = parseFloat(document.getElementById('tx-amount').value);
-  const dateISO = document.getElementById('tx-date').value;
+  const dateISO = document.getElementById('tx-date').value || todayISO();
+  const dueISO  = document.getElementById('tx-due').value;
   const obs = document.getElementById('tx-obs').value.trim();
   if(!desc) { showToast('Preencha a descrição!','err'); return; }
   if(!amount||isNaN(amount)||amount<=0) { showToast('Informe um valor válido!','err'); return; }
+  if(!dueISO) { showToast('Informe a data de vencimento!','err'); document.getElementById('tx-due').focus(); return; }
 
   // Detect if the date belongs to a different month
   const datePeriod = dateISO ? dateISO.slice(0,7) : S.period;
@@ -1812,8 +1971,15 @@ function saveTx() {
 
   const cat = CAT[S.txCat];
   const pay = S.txType==='receita'?'pix':S.txPay;
+  // resolve card name if credit
+  let cardName = '';
+  if(pay === 'cc' && S.txCardId) {
+    const card = getCards().find(c=>c.id===S.txCardId);
+    if(card) cardName = card.emoji + ' ' + card.name;
+  }
   const tx = { id: S.editId||Date.now(), type:S.txType, amount, desc, cat:S.txCat, pay,
-                date:isoToBR(dateISO||S.period+'-01'), obs, emoji:cat.e };
+                date:isoToBR(dateISO), due:isoToBR(dueISO), obs, emoji:cat.e,
+                ...(cardName ? {card: cardName} : {}) };
 
   if(S.editId) {
     // Remove from any period that has it (compare as string to avoid type mismatch)
@@ -1922,12 +2088,12 @@ function renderHome() {
       const isG=t.type==='gasto';
       const ibg=isG?'rgba(224,82,82,.1)':'rgba(29,158,117,.1)';
       const pcls=t.type==='receita'?'pill-rec':t.pay==='cc'?'pill-cc':t.pay==='pix'?'pill-pix':'pill-deb';
-      const plbl=t.type==='receita'?'Receita':PAY_LBL[t.pay]||'';
+      const plbl=t.type==='receita'?'Receita':(t.pay==='cc'&&t.card?t.card:PAY_LBL[t.pay]||'');
       return `<div class="tx-card-item" onclick="openEditTx(${t.id})">
         <div class="txi-icon" style="background:${ibg}">${t.emoji||'📦'}</div>
         <div class="txi-info">
           <div class="txi-desc">${t.desc}</div>
-          <div class="txi-meta">${CAT[t.cat]?.e||''} ${t.cat} · ${t.date}</div>
+          <div class="txi-meta">${CAT[t.cat]?.e||''} ${t.cat} · 📅 ${t.date}${t.due?` · ⏰ Venc: ${t.due}`:''}</div>
         </div>
         <div class="txi-right">
           <div class="txi-amt" style="color:${isG?'var(--r)':'var(--g)'}">${isG?'−':'+'}${fmt(t.amount)}</div>
@@ -2422,12 +2588,12 @@ function renderExtract() {
       const isG=t.type==='gasto';
       const ibg=isG?'rgba(224,82,82,.1)':'rgba(29,158,117,.1)';
       const pcls=t.type==='receita'?'pill-rec':t.pay==='cc'?'pill-cc':t.pay==='pix'?'pill-pix':'pill-deb';
-      const plbl=t.type==='receita'?'Receita':PAY_LBL[t.pay]||'';
+      const plbl=t.type==='receita'?'Receita':(t.pay==='cc'&&t.card?t.card:PAY_LBL[t.pay]||'');
       return`<div class="ext-tx" onclick="openEditTx(${t.id})">
         <div class="ext-tx-icon" style="background:${ibg}">${t.emoji||'📦'}</div>
         <div class="ext-tx-info">
           <div class="ext-tx-desc">${t.desc}${t.obs?`<span style="font-size:10.5px;color:var(--txf);font-weight:400"> · ${t.obs}</span>`:''}</div>
-          <div class="ext-tx-meta"><span>${CAT[t.cat]?.e||''} ${t.cat}</span></div>
+          <div class="ext-tx-meta"><span>${CAT[t.cat]?.e||''} ${t.cat}</span><span>📅 ${t.date}</span>${t.due?`<span>⏰ Venc: ${t.due}</span>`:''}</div>
         </div>
         <div class="ext-tx-right">
           <div class="ext-tx-amt" style="color:${isG?'var(--r)':'var(--g)'}">${isG?'−':'+'}${fmt(t.amount)}</div>
@@ -2472,10 +2638,10 @@ async function exportExcel() {
 
     // ── SHEET 1: LANÇAMENTOS ──
     const txRows = [
-      ['Data','Tipo','Categoria','Emoji','Valor (R$)','Pagamento','Descrição','Observação']
+      ['Data Lançamento','Vencimento','Tipo','Categoria','Emoji','Valor (R$)','Pagamento','Descrição','Observação']
     ];
     [...txs].sort(dateSort).forEach(t => {
-      txRows.push([t.date, t.type==='gasto'?'Gasto':'Receita', t.cat.charAt(0).toUpperCase()+t.cat.slice(1), t.emoji||'', t.amount, payLbl[t.pay]||t.pay, t.desc, t.obs||'']);
+      txRows.push([t.date, t.due||'', t.type==='gasto'?'Gasto':'Receita', t.cat.charAt(0).toUpperCase()+t.cat.slice(1), t.emoji||'', t.amount, t.card||(payLbl[t.pay]||t.pay), t.desc, t.obs||'']);
     });
     txRows.push([]);
     txRows.push(['','','','Total Gastos:', `=SUMIF(B2:B${1+txs.length},"Gasto",E2:E${1+txs.length})`, '', '', '']);
@@ -3212,7 +3378,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-5';
+const C = 'cp-v4-7';
 const BILL_DAYS = [10,7,5,3,1,0];
 
 self.addEventListener('install', e => {
