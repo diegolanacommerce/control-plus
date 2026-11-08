@@ -1213,7 +1213,7 @@ async function doCloudSave() {
   setSyncDot('syncing');
   try {
     const periods = getAllPeriods();
-    const data = { _period: S.period, _apiKey: S.apiKey, _updatedAt: Date.now(), _bills: getBills() };
+    const data = { _period: S.period, _apiKey: S.apiKey, _updatedAt: Date.now(), _bills: getBills(), _cards: getCards() };
     periods.forEach(ym => { data[ym] = loadPeriod(ym); });
     // Timeout de 10s para não ficar preso eternamente
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000));
@@ -1268,6 +1268,7 @@ function startRealtimeSync() {
         if(data._period) { S.period = data._period; localStorage.setItem('cp_period', S.period); }
         if(data._apiKey) { S.apiKey = data._apiKey; localStorage.setItem('cp_api', S.apiKey); }
         if(data._bills && Array.isArray(data._bills)) { localStorage.setItem('cp_bills', JSON.stringify(data._bills)); }
+        if(data._cards && Array.isArray(data._cards)) { localStorage.setItem('cp_cards', JSON.stringify(data._cards)); }
         // Atualiza timestamp local para refletir dado da nuvem
         localStorage.setItem('cp_last_save', String(cloudTs));
         updatePeriodUI(); renderHome();
@@ -1307,9 +1308,48 @@ function stopRealtimeSync() {
 async function forceSyncNow() {
   closeUserMenu();
   if(!fbUser) { showToast('Faça login para sincronizar', 'err'); return; }
+
+  setSyncDot('syncing');
+  showToast('🔄 Sincronizando...', 'ok');
+
+  // 1. Sobe dados locais para a nuvem
   await doCloudSave();
-  if(document.getElementById('sync-dot')?.classList.contains('synced')) {
-    showToast('☁️ Sincronizado!', 'ok');
+
+  // 2. Busca dados frescos do Firestore direto (GET, sem cache)
+  if(fbDb) {
+    try {
+      const docRef = fbDb.collection('users').doc(fbUser.uid).collection('data').doc('main');
+      const snap = await docRef.get({ source: 'server' }); // força buscar do servidor, não do cache
+      if(snap.exists) {
+        _isSyncing = true;
+        try {
+          const data = snap.data();
+          Object.keys(data).forEach(k => {
+            if(/^\d{4}-\d{2}$/.test(k) && Array.isArray(data[k])) _localSavePeriod(k, data[k]);
+          });
+          if(data._period) { S.period = data._period; localStorage.setItem('cp_period', S.period); }
+          if(data._apiKey) { S.apiKey = data._apiKey; localStorage.setItem('cp_api', S.apiKey); }
+          if(data._bills && Array.isArray(data._bills)) { localStorage.setItem('cp_bills', JSON.stringify(data._bills)); }
+          if(data._cards) { localStorage.setItem('cp_cards', JSON.stringify(data._cards)); }
+          if(data._updatedAt) localStorage.setItem('cp_last_save', String(data._updatedAt));
+        } finally { _isSyncing = false; }
+      }
+    } catch(e) { console.warn('forceSyncNow fetch error:', e); }
+  }
+
+  // 3. Rerenderiza TUDO imediatamente
+  updatePeriodUI();
+  renderHome();
+  if(S.currentTab === 'dash')  renderDash();
+  if(S.currentTab === 'ext')   renderExtract();
+  if(S.currentTab === 'bills') { renderBills(); updateBillsBadge(); }
+  updateBillsBadge();
+  setSyncDot('synced');
+  showToast('✅ Sincronizado!', 'ok');
+
+  // 4. Atualiza o Service Worker (busca novo código do servidor)
+  if('serviceWorker' in navigator && window._swReg) {
+    window._swReg.update().catch(() => {});
   }
 }
 
@@ -3830,7 +3870,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-13';
+const C = 'cp-v4-14';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
