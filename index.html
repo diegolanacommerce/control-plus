@@ -577,11 +577,11 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
           <button class="pay-seg3-btn" id="psb-deb" onclick="setTxPay('deb')">🏦 Débito</button>
           <button class="pay-seg3-btn" id="psb-pix" onclick="setTxPay('pix')">⚡ Pix</button>
         </div>
-        <!-- Card picker — aparece ao selecionar Crédito -->
+        <!-- Card picker — aparece ao selecionar Crédito ou Débito -->
         <div class="card-picker" id="card-picker"></div>
         <!-- Inline bank add panel (shown when clicking + Banco) -->
         <div id="inline-bank-panel" style="display:none;padding:10px;background:var(--surf2);border:1.5px solid var(--brd);border-top:none;border-radius:0 0 var(--radm) var(--radm);margin-top:-4px">
-          <div style="font-size:11px;font-weight:700;color:var(--txm);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Escolher banco</div>
+          <div style="font-size:11px;font-weight:700;color:var(--txm);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px" id="inline-bank-label">Escolher banco</div>
           <div id="inline-bank-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
           <div style="margin-top:10px;display:flex;gap:6px;align-items:center">
             <input id="inline-bank-custom" class="finput" placeholder="Nome personalizado" style="flex:1;font-size:12px;padding:7px 10px"/>
@@ -2317,12 +2317,16 @@ function setTxPay(p) {
   S.txPay = p;
   ['cc','deb','pix'].forEach(k=>document.getElementById('psb-'+k).classList.toggle('sel',k===p));
   const picker = document.getElementById('card-picker');
+  const panel  = document.getElementById('inline-bank-panel');
+  const label  = document.getElementById('inline-bank-label');
   if(picker) {
-    if(p === 'cc') {
+    if(p === 'cc' || p === 'deb') {
       picker.classList.add('show');
+      if(label) label.textContent = p === 'cc' ? 'Escolher cartão de crédito' : 'Escolher cartão de débito';
       renderCardPicker();
     } else {
       picker.classList.remove('show');
+      if(panel) panel.style.display = 'none';
     }
   }
 }
