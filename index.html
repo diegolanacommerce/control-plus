@@ -559,7 +559,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       <div class="frow-2">
         <div style="flex:1">
           <label class="flabel">Valor (R$)</label>
-          <input class="finput" id="tx-amount" type="number" step="0.01" min="0" placeholder="0,00" inputmode="decimal"/>
+          <input class="finput" id="tx-amount" type="tel" placeholder="R$ 0,00" inputmode="numeric" oninput="maskCurrency(this)" style="font-weight:600"/>
         </div>
         <div style="flex:1" id="due-wrapper">
           <label class="flabel" id="due-label">Vencimento <span style="color:var(--r)">*</span></label>
@@ -803,7 +803,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
     <button class="fb-btn" id="fb-submit-btn" onclick="submitAuth()">Entrar</button>
     <div class="fb-sep"><div class="fb-sep-line"></div><div class="fb-sep-txt">ou</div><div class="fb-sep-line"></div></div>
     <button class="fb-btn" style="background:var(--surf2);color:var(--txm);box-shadow:none;border:1.5px solid var(--brd)" onclick="useOffline()">Usar sem conta (offline)</button>
-    <span class="fb-config-link" onclick="openFbSetup()">⚙️ Configurar Firebase</span>
+    <div style="font-size:11px;color:var(--txm);text-align:center;margin-top:8px">Control+ © 2026</div>
   </div>
 </div>
 
@@ -1109,8 +1109,14 @@ let fbLoaded = false;
 let fbListener = null;   // Firestore realtime listener
 let _isSyncing = false;  // prevent loop: cloud→local→cloud
 
+// Credenciais Firebase fixas — todos os usuários usam o mesmo projeto
+const FB_CONFIG_FIXED = {
+  apiKey: 'AIzaSyCMfojJLWnVGQ73hu1u9Lo3axyH6sAj8eg',
+  authDomain: 'projeto-control-mais.firebaseapp.com',
+  projectId: 'projeto-control-mais'
+};
 function getFbConfig() {
-  try { return JSON.parse(localStorage.getItem('cp_fb_config') || 'null'); } catch(e) { return null; }
+  return FB_CONFIG_FIXED;
 }
 
 async function loadFirebaseSDK() {
@@ -1365,7 +1371,6 @@ function switchAuthTab(tab) {
 }
 
 function openLogin() {
-  if(!getFbConfig()) { openFbSetup(); return; }
   document.getElementById('fb-login-ov').classList.remove('hidden');
   document.getElementById('fb-email').focus();
 }
@@ -1958,6 +1963,25 @@ const CATS = [
 ];
 const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
 
+// Máscara de moeda: formata enquanto digita → "R$ 1.234,56"
+function maskCurrency(el) {
+  let raw = el.value.replace(/\D/g,''); // só dígitos
+  if(!raw) { el.value = ''; return; }
+  raw = raw.replace(/^0+/,'') || '0';  // remove zeros à esquerda
+  // garante pelo menos 3 dígitos (para centavos)
+  while(raw.length < 3) raw = '0' + raw;
+  const cents = raw.slice(-2);
+  const intPart = raw.slice(0, -2).replace(/^0+/,'') || '0';
+  // Separa milhar
+  const intFmt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  el.value = 'R$ ' + intFmt + ',' + cents;
+}
+function parseCurrency(val) {
+  // "R$ 1.234,56" → 1234.56
+  if(!val) return 0;
+  return parseFloat(val.replace(/[R$\s.]/g,'').replace(',','.')) || 0;
+}
+
 function fmt(v, sign=false) {
   const abs = Math.abs(v);
   // Compact for large values to prevent overflow in small cards
@@ -2102,6 +2126,11 @@ function openNewTx(type) {
   setTxType(type || 'gasto');
   document.getElementById('tx-desc').value = '';
   document.getElementById('tx-amount').value = '';
+  // Foca no campo de valor e posiciona cursor após R$
+  setTimeout(() => {
+    const a = document.getElementById('tx-amount');
+    if(a) a.focus();
+  }, 200);
   document.getElementById('tx-date').value = todayISO(); // automático
   document.getElementById('tx-due').value = '';
   document.getElementById('tx-obs').value = '';
@@ -2130,7 +2159,10 @@ function openEditTx(id) {
   document.getElementById('del-confirm').classList.remove('show');
   setTxType(tx.type);
   document.getElementById('tx-desc').value = tx.desc;
-  document.getElementById('tx-amount').value = tx.amount;
+  // Formata valor existente com máscara R$
+  const amtEl = document.getElementById('tx-amount');
+  amtEl.value = String(Math.round(tx.amount * 100)).padStart(3,'0');
+  maskCurrency(amtEl);
   document.getElementById('tx-date').value = brToISO(tx.date); // data lançamento
   document.getElementById('tx-due').value = tx.due ? brToISO(tx.due) : '';
   document.getElementById('tx-obs').value = tx.obs||'';
@@ -2390,7 +2422,7 @@ function setTxPay(p) {
 }
 function saveTx() {
   const desc = document.getElementById('tx-desc').value.trim();
-  const amount = parseFloat(document.getElementById('tx-amount').value);
+  const amount = parseCurrency(document.getElementById('tx-amount').value);
   const dateISO = document.getElementById('tx-date').value || todayISO();
   const dueISO  = document.getElementById('tx-due').value;
   const obs = document.getElementById('tx-obs').value.trim();
@@ -3741,19 +3773,16 @@ window.addEventListener('offline', () => {
 });
 
 // ══ FIREBASE INIT ══
-// Try to initialize Firebase if config exists, show login if not logged in
+// Inicializa Firebase automaticamente — credenciais já estão embutidas
 (async function() {
-  const cfg = getFbConfig();
-  if(cfg && cfg.apiKey) {
-    const ok = await initFirebase();
-    if(!ok) setSyncDot('error');
-    // onAuthStateChanged handles the rest
-    // If after 2s still no user, show login button (already visible from updateUserUI)
-  } else {
-    // No Firebase config — show login button so user can set up
-    document.getElementById('login-btn').style.display = 'flex';
-    setSyncDot('idle');
+  const ok = await initFirebase();
+  if(!ok) {
+    setSyncDot('error');
+    showToast('⚠️ Erro ao conectar. Verifique sua internet.', 'err');
   }
+  // onAuthStateChanged cuida do resto:
+  // - se logado → entra direto
+  // - se não logado → mostra botão de login
 })();
 
 // ══ NOTIFICAÇÕES DE VENCIMENTO ══
@@ -3870,7 +3899,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-14';
+const C = 'cp-v4-16';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
