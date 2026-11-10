@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-09T21:14 v5-0 -->
+<!-- build: 2026-11-10T10:50 v5-1 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -2653,29 +2653,39 @@ function openAIRespToGemini(data) {
   return {candidates:[{content:{parts:[{text}]}}]};
 }
 
-const GEMINI_MODELS = ['gemini-3.8-flash','gemini-2.5-flash','gemini-2.0-flash-lite','gemini-1.5-flash'];
-const OR_MODELS = ['openrouter/auto','google/gemma-4-31b-it:free','qwen/qwen3-235b-a22b:free','mistralai/mistral-7b-instruct:free'];
+const GEMINI_MODELS = ['gemini-2.5-flash','gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash'];
+const OR_MODELS = [
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'google/gemma-3-27b-it:free',
+  'mistralai/mistral-nemo:free',
+  'qwen/qwen-2.5-72b-instruct:free',
+  'microsoft/phi-3-medium-128k-instruct:free',
+  'google/gemma-2-9b-it:free'
+];
 
 async function aiRequest(key, payload) {
   if(isOpenRouterKey(key)) {
     // ── OpenRouter ──
     const body = geminiPayloadToOpenAI(payload);
     for(const model of OR_MODELS) {
-      body.model = model;
-      const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method:'POST',
-        headers:{'Authorization':`Bearer ${key}`,'Content-Type':'application/json','HTTP-Referer':'https://controlplus.app','X-Title':'Control+'},
-        body: JSON.stringify(body)
-      });
-      const d = await r.json();
-      if(d.error) {
-        const msg = (d.error.message||d.error.code||'').toLowerCase();
-        if(msg.includes('not found')||msg.includes('unavailable')||msg.includes('no endpoints')) continue;
-        return openAIRespToGemini(d);
-      }
-      return openAIRespToGemini(d);
+      try {
+        body.model = model;
+        const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method:'POST',
+          headers:{'Authorization':`Bearer ${key}`,'Content-Type':'application/json','HTTP-Referer':'https://diegolanacommerce.github.io/control-plus','X-Title':'Control+'},
+          body: JSON.stringify(body)
+        });
+        if(!r.ok && r.status !== 200) continue;
+        const d = await r.json();
+        if(d.error) {
+          const msg = (d.error.message||d.error.code||'').toLowerCase();
+          if(msg.includes('not found')||msg.includes('unavailable')||msg.includes('no endpoints')||msg.includes('context length')||msg.includes('rate limit')) continue;
+          return openAIRespToGemini(d);
+        }
+        if(d.choices && d.choices[0]?.message?.content) return openAIRespToGemini(d);
+      } catch(e) { continue; }
     }
-    return {error:{message:'Nenhum modelo OpenRouter disponível. Tente novamente.'}};
+    return {error:{message:'IA temporariamente indisponível. Tente novamente em instantes.'}};
   } else {
     // ── Google Gemini ──
     for(const model of GEMINI_MODELS) {
@@ -3935,7 +3945,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-0';
+const C = 'cp-v5-1';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
