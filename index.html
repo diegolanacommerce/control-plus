@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-10T10:50 v5-1 -->
+<!-- build: 2026-11-10T19:59 v5-3 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -1219,7 +1219,7 @@ async function doCloudSave() {
   setSyncDot('syncing');
   try {
     const periods = getAllPeriods();
-    const data = { _period: S.period, _apiKey: S.apiKey, _updatedAt: Date.now(), _bills: getBills(), _cards: getCards() };
+    const data = { _period: S.period, _updatedAt: Date.now(), _bills: getBills(), _cards: getCards() };
     periods.forEach(ym => { data[ym] = loadPeriod(ym); });
     // Timeout de 10s para não ficar preso eternamente
     const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000));
@@ -1272,7 +1272,7 @@ function startRealtimeSync() {
           if(/^\d{4}-\d{2}$/.test(k) && Array.isArray(data[k])) _localSavePeriod(k, data[k]);
         });
         if(data._period) { S.period = data._period; localStorage.setItem('cp_period', S.period); }
-        if(data._apiKey) { S.apiKey = data._apiKey; localStorage.setItem('cp_api', S.apiKey); }
+        // Chave de IA é embutida no app — nunca sobrescrever com dado da nuvem
         if(data._bills && Array.isArray(data._bills)) { localStorage.setItem('cp_bills', JSON.stringify(data._bills)); }
         if(data._cards && Array.isArray(data._cards)) { localStorage.setItem('cp_cards', JSON.stringify(data._cards)); }
         // Atualiza timestamp local para refletir dado da nuvem
@@ -1334,7 +1334,7 @@ async function forceSyncNow() {
             if(/^\d{4}-\d{2}$/.test(k) && Array.isArray(data[k])) _localSavePeriod(k, data[k]);
           });
           if(data._period) { S.period = data._period; localStorage.setItem('cp_period', S.period); }
-          if(data._apiKey) { S.apiKey = data._apiKey; localStorage.setItem('cp_api', S.apiKey); }
+          // Chave de IA é embutida no app — nunca sobrescrever com dado da nuvem
           if(data._bills && Array.isArray(data._bills)) { localStorage.setItem('cp_bills', JSON.stringify(data._bills)); }
           if(data._cards) { localStorage.setItem('cp_cards', JSON.stringify(data._cards)); }
           if(data._updatedAt) localStorage.setItem('cp_last_save', String(data._updatedAt));
@@ -1960,7 +1960,7 @@ const S = {
   get txs() { return loadPeriod(this.period); },
   set txs(arr) { savePeriod(this.period, arr); },
   // Chave de IA embutida — usuários não precisam configurar
-  apiKey: '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',
+  apiKey: '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',
   chatPay: 'cc',
   filter: 'todos',
   editId: null,
@@ -2069,6 +2069,7 @@ if(!S.online) document.getElementById('offbanner').classList.add('show');
 
 // ══ API KEY — chave embutida, funções mantidas por compatibilidade ══
 function checkApiKey() { /* chave já embutida em S.apiKey */ }
+function getApiKey() { return S.apiKey; }
 function openApiModal() { /* modal removido */ }
 function saveApiKey() { /* modal removido */ }
 function skipApiKey() { /* modal removido */ }
@@ -3945,7 +3946,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-1';
+const C = 'cp-v5-3';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
