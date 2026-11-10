@@ -2,8 +2,12 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
+<!-- build: 2026-11-09T21:14 v5-0 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -520,22 +524,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 <div class="toast" id="toast"></div>
 
 <!-- API MODAL -->
-<div class="api-ov" id="api-ov" onclick="if(event.target===this && S.apiKey)document.getElementById('api-ov').classList.add('hidden')">
-  <div class="api-box">
-    <div class="api-logo">C+</div>
-    <div class="api-title">Ativar assistente IA</div>
-    <div class="api-sub">Cole sua chave de API gratuita abaixo. O app detecta automaticamente o provedor.</div>
-    <input class="api-input" id="api-key-inp" type="password" placeholder="AIza... ou sk-or-..." autocomplete="off"/>
-    <button class="api-btn" onclick="saveApiKey()">Ativar assistente IA</button>
-    <span class="api-skip" onclick="skipApiKey()">Usar sem IA por enquanto</span>
-    <div class="api-hint" style="text-align:left;line-height:1.6">
-      <b>Opção 1 — Google Gemini</b> (começa com <code>AIza</code>)<br>
-      👉 <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a><br><br>
-      <b>Opção 2 — OpenRouter</b> (começa com <code>sk-or-</code>) — recomendado se o Gemini falhar<br>
-      👉 <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>
-    </div>
-  </div>
-</div>
+<!-- modal IA removido — chave embutida no código -->
 
 <!-- EDIT / NEW TX MODAL -->
 <div class="modal-ov" id="tx-modal">
@@ -679,7 +668,18 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       <div id="adm-key-info" style="font-size:11px;color:var(--txm);margin-top:4px"></div>
       <button onclick="copyAdminKey()" style="margin-top:10px;background:var(--g);color:#fff;border:none;padding:8px 16px;border-radius:var(--rads);font-size:12px;font-weight:700;cursor:pointer;width:100%">📋 Copiar chave</button>
     </div>
-    <div style="margin-top:20px">
+    <!-- FILA DE NOVOS USUÁRIOS -->
+    <div style="margin-top:20px;background:var(--surf2);border-radius:var(--radm);padding:14px;border:1.5px solid var(--brd)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--tx)">🆕 Aguardando licença</div>
+        <button onclick="loadPendingUsers()" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--txm)">🔄</button>
+      </div>
+      <div id="adm-pending-list" style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;color:var(--txm)">Carregando...</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
       <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:10px">Chaves ativas</div>
       <div id="adm-keys-list" style="display:flex;flex-direction:column;gap:8px">
         <div style="font-size:12px;color:var(--txm)">Carregando...</div>
@@ -765,7 +765,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       <b>3.</b> Vá em "Autenticação" → "Sign-in method" → ative <b>Email/Senha</b><br>
       <b>4.</b> Vá em "Firestore Database" → crie banco (modo produção)<br>
       <b>5.</b> Em "Regras" do Firestore, cole:<br>
-      <code style="font-size:10px;background:var(--bg);padding:4px 8px;border-radius:6px;display:block;margin:4px 0">rules_version='2'; service cloud.firestore { match /databases/{db}/documents { match /users/{uid}/{document=**} { allow read,write: if request.auth.uid==uid; } match /licenses/{key} { allow read: if request.auth != null; allow write: if request.auth.token.email == 'diegolanacommerce@gmail.com'; } } }</code>
+      <code style="font-size:10px;background:var(--bg);padding:4px 8px;border-radius:6px;display:block;margin:4px 0">rules_version='2'; service cloud.firestore { match /databases/{db}/documents { match /users/{uid}/{document=**} { allow read,write: if request.auth.uid==uid; } match /licenses/{key} { allow read: if request.auth != null; allow write: if request.auth.token.email == 'diegolanacommerce@gmail.com'; } match /pending_users/{email} { allow create: if request.auth != null; allow read,write: if request.auth.token.email == 'diegolanacommerce@gmail.com'; } } }</code>
       <b>6.</b> Em "Configurações do projeto" → "Seus apps" → adicione app web → copie as credenciais abaixo
     </div>
     <div class="frow">
@@ -830,7 +830,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       </div>
       <div style="position:relative;display:flex;align-items:center;gap:6px">
         <div class="sync-dot" id="sync-dot" title="Status de sincronização"></div>
-        <button class="hbtn" onclick="openApiModal()" title="Configurar IA">🔑</button>
+        <!-- chave IA embutida — botão removido -->
         <!-- User button (shown when logged in) -->
         <button class="hbtn-user" id="user-btn" style="display:none" onclick="toggleUserMenu()" title="Conta">
           <span id="user-initial">?</span>
@@ -841,7 +841,7 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
         <div class="user-menu" id="user-menu">
           <div class="user-menu-email" id="user-menu-email"></div>
           <div class="user-menu-item" onclick="forceSyncNow()">🔄 Sincronizar agora</div>
-          <div class="user-menu-item" onclick="openApiModal()">🤖 Configurar IA</div>
+          <!-- item configurar IA removido —chave embutida -->
           <div class="user-menu-item" onclick="closeUserMenu();openSettings()">⚙️ Configurações</div>
           <div class="user-menu-item" id="adm-menu-btn" style="display:none" onclick="closeUserMenu();openAdminPanel()">🛡️ Painel Admin</div>
           <div class="user-menu-item" id="license-info-item" onclick="closeUserMenu();showLicenseInfo()">🔑 Minha licença</div>
@@ -1432,9 +1432,17 @@ async function submitAuth() {
       await fbAuth.signInWithEmailAndPassword(email, pass);
     } else {
       await fbAuth.createUserWithEmailAndPassword(email, pass);
+      // Registra novo usuário na fila de pendentes para o admin emitir licença
+      try {
+        await fbDb.collection('pending_users').doc(email).set({
+          email,
+          createdAt: Date.now(),
+          status: 'pending'
+        });
+      } catch(e) { /* silencioso — não bloqueia o cadastro */ }
     }
     closeLogin();
-    showToast(authTab==='login' ? '✅ Login efetuado!' : '✅ Conta criada!', 'ok');
+    showToast(authTab==='login' ? '✅ Login efetuado!' : '✅ Conta criada! Aguarde sua chave de acesso.', 'ok');
   } catch(e) {
     const msgs = {
       'auth/user-not-found': 'E-mail não encontrado.',
@@ -1588,7 +1596,48 @@ function showLicenseInfo() {
 function openAdminPanel() {
   if(!fbUser || fbUser.email !== ADMIN_EMAIL) { showToast('Acesso negado', 'err'); return; }
   document.getElementById('admin-ov').classList.remove('hidden');
+  loadPendingUsers();
   loadAdminKeys();
+}
+
+async function loadPendingUsers() {
+  const el = document.getElementById('adm-pending-list');
+  if(!el || !fbDb) return;
+  el.innerHTML = '<div style="font-size:12px;color:var(--txm)">Carregando...</div>';
+  try {
+    const snap = await fbDb.collection('pending_users')
+      .where('status','==','pending')
+      .orderBy('createdAt','desc')
+      .get();
+    if(snap.empty) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--txm)">Nenhum usuário aguardando.</div>';
+      return;
+    }
+    el.innerHTML = snap.docs.map(doc => {
+      const d = doc.data();
+      const dt = new Date(d.createdAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<div style="background:var(--surf);border-radius:var(--rads);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--brd)">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--tx)">${d.email}</div>
+          <div style="font-size:11px;color:var(--txm)">Cadastrou em ${dt}</div>
+        </div>
+        <button onclick="emitLicenseFor('${d.email}')" style="background:var(--g);color:#fff;border:none;padding:7px 12px;border-radius:var(--rads);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🔑 Emitir</button>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--r)">Erro ao carregar.</div>';
+  }
+}
+
+async function emitLicenseFor(email) {
+  // Preenche o email no campo e gera chave automaticamente
+  document.getElementById('adm-email').value = email;
+  await adminGenKey();
+  // Marca como atendido no Firestore
+  try {
+    await fbDb.collection('pending_users').doc(email).update({ status: 'licensed', licensedAt: Date.now() });
+    loadPendingUsers();
+  } catch(e) {}
 }
 
 /* ===== SETTINGS / CUSTOMIZAÇÃO ===== */
@@ -1910,7 +1959,8 @@ const S = {
   period: localStorage.getItem('cp_period') || currentYM(),
   get txs() { return loadPeriod(this.period); },
   set txs(arr) { savePeriod(this.period, arr); },
-  apiKey: localStorage.getItem('cp_api') || '',
+  // Chave de IA embutida — usuários não precisam configurar
+  apiKey: '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',
   chatPay: 'cc',
   filter: 'todos',
   editId: null,
@@ -2017,25 +2067,11 @@ function showToast(msg, type='ok') {
 // ══ ONLINE / OFFLINE (handled above with Firebase reconnect) ══
 if(!S.online) document.getElementById('offbanner').classList.add('show');
 
-// ══ API KEY ══
-function checkApiKey() {
-  if(!S.apiKey) document.getElementById('api-ov').classList.remove('hidden');
-  else document.getElementById('api-ov').classList.add('hidden');
-}
-function openApiModal() { document.getElementById('api-ov').classList.remove('hidden'); }
-function saveApiKey() {
-  const k = document.getElementById('api-key-inp').value.trim();
-  if(!k || k.length < 10) { showToast('Chave inválida!', 'err'); return; }
-  S.apiKey = k; localStorage.setItem('cp_api', k);
-  localStorage.setItem('cp_last_save', String(Date.now()));
-  if(!_isSyncing) scheduleCloudSave();
-  document.getElementById('api-ov').classList.add('hidden');
-  showToast('✅ IA ativada com sucesso!', 'ok');
-}
-function skipApiKey() {
-  document.getElementById('api-ov').classList.add('hidden');
-  showToast('Usando sem IA. Configure depois com 🔑', 'ok');
-}
+// ══ API KEY — chave embutida, funções mantidas por compatibilidade ══
+function checkApiKey() { /* chave já embutida em S.apiKey */ }
+function openApiModal() { /* modal removido */ }
+function saveApiKey() { /* modal removido */ }
+function skipApiKey() { /* modal removido */ }
 checkApiKey();
 
 // ══ PERIOD UI ══
@@ -2698,7 +2734,7 @@ async function sendMsg() {
   const inp=document.getElementById('chat-input');
   const txt=inp.value.trim(); if(!txt) return;
   inp.value=''; addMsg(txt,true);
-  if(!S.apiKey) { addMsg('⚠️ Assistente IA não configurado. <b onclick="openApiModal()" style="color:var(--g);cursor:pointer">Toque aqui para configurar</b> ou use o 🔑 no cabeçalho.',false); return; }
+  if(!S.apiKey) { addMsg('⚠️ Erro interno: chave de IA não encontrada. Recarregue o app.',false); return; }
   if(!S.online) {
     // Enfileira mensagem para processar quando voltar online
     const queue = JSON.parse(localStorage.getItem('cp_ai_queue')||'[]');
@@ -2755,9 +2791,9 @@ ${buildCtx()}`;
       hideTyping();
       const em = (data.error.message||'').toLowerCase();
       let msg = data.error.message;
-      if(data.error.status==='INVALID_ARGUMENT'||data.error.status==='UNAUTHENTICATED'||em.includes('api key')) msg='Chave inválida. <b onclick="openApiModal()" style="color:var(--g);cursor:pointer">Reconfigurar</b>';
-      else if(em.includes('quota')||em.includes('rate limit')) msg='Limite de uso atingido. Aguarde alguns minutos ou <b onclick="openApiModal()" style="color:var(--g);cursor:pointer">use uma chave OpenRouter</b>.';
-      else if(em.includes('high demand')||em.includes('overloaded')) msg='Serviço sobrecarregado. Tente novamente em instantes ou <b onclick="openApiModal()" style="color:var(--g);cursor:pointer">use uma chave OpenRouter (sk-or-...)</b> — gratuita em openrouter.ai';
+      if(data.error.status==='INVALID_ARGUMENT'||data.error.status==='UNAUTHENTICATED'||em.includes('api key')) msg='Chave de IA inválida. Entre em contato com o suporte.';
+      else if(em.includes('quota')||em.includes('rate limit')) msg='Limite de uso atingido. Aguarde alguns minutos e tente novamente.';
+      else if(em.includes('high demand')||em.includes('overloaded')) msg='Serviço sobrecarregado. Tente novamente em instantes.';
       addMsg('❌ '+msg,false);return;
     }
     const reply=data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim()||'';
@@ -3899,7 +3935,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v4-16';
+const C = 'cp-v5-0';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
