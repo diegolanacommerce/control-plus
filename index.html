@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-11T09:56 v5-6 -->
+<!-- build: 2026-11-11T20:39 v5-7 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -19,7 +19,7 @@ document.write('<link rel="manifest" href="'+URL.createObjectURL(_b)+'"/>');
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 :root{
   --g:#1D9E75;--gl:#E8F7F1;--gd:#0F6E56;--gxd:#085041;
@@ -27,8 +27,8 @@ document.write('<link rel="manifest" href="'+URL.createObjectURL(_b)+'"/>');
   --a:#F59E0B;--al:#FEF3C7;--ad:#92400E;
   --b:#3B82F6;--bl:#EFF6FF;--bd:#1D4ED8;
   --pu:#8B5CF6;--pul:#F5F3FF;--pud:#5B21B6;
-  --font:'Plus Jakarta Sans',sans-serif;
-  --fd:'Syne',sans-serif;
+  --font:'Inter',sans-serif;
+  --fd:'Inter',sans-serif;
   --rad:16px;--radm:12px;--rads:8px;--radf:24px;
   --bg:#F0F2F5;--surf:#FFFFFF;--surf2:#F8F9FA;
   --brd:rgba(0,0,0,0.07);--brd2:rgba(0,0,0,0.12);
@@ -3919,7 +3919,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-6';
+const C = 'cp-v5-7';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
