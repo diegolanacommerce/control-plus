@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-12T07:31 v5-8 -->
+<!-- build: 2026-11-12T19:34 v5-9 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -1135,6 +1135,92 @@ async function loadFirebaseSDK() {
   });
 }
 
+// ══ WEB PUSH (admin push com app fechado) ══
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function subscribeAdminPush() {
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if(!fbUser || fbUser.email !== ADMIN_EMAIL) return;
+  try {
+    const reg = window._swReg || await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    _pushSubscription = sub;
+    // Salva endpoint no Firestore para o Worker poder enviar push
+    if(fbDb) {
+      await fbDb.collection('admin_push').doc('endpoint').set({
+        endpoint: sub.endpoint,
+        keys: {
+          p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
+          auth:   btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth'))))
+        },
+        updatedAt: Date.now()
+      });
+    }
+    console.log('[CP] Admin push inscrito:', sub.endpoint.slice(-20)+'...');
+  } catch(e) {
+    console.warn('[CP] Push subscription failed:', e.message);
+  }
+}
+
+// Escuta em tempo real novos usuários pendentes (app aberto)
+let _pendingListener = null;
+function startPendingListener() {
+  if(!fbDb || !fbUser || fbUser.email !== ADMIN_EMAIL) return;
+  if(_pendingListener) return; // já escutando
+  let firstRun = true;
+  _pendingListener = fbDb.collection('pending_users')
+    .where('status','==','pending')
+    .onSnapshot(snap => {
+      if(firstRun) { firstRun = false; updateAdminBadge(snap.size); return; }
+      snap.docChanges().forEach(change => {
+        if(change.type === 'added') {
+          const d = change.doc.data();
+          updateAdminBadge(snap.size);
+          // Notificação browser imediata (app aberto)
+          if(Notification.permission === 'granted') {
+            new Notification('🆕 Novo cliente — Control+', {
+              body: `${d.email} aguarda licença`,
+              icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="44" fill="%231D9E75"/><text x="96" y="125" font-size="80" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold">C+</text></svg>',
+              tag: 'pending-' + change.doc.id,
+              requireInteraction: true
+            });
+          }
+          showToast('🆕 Novo cliente: ' + d.email, 'ok');
+        }
+        if(change.type === 'removed') updateAdminBadge(snap.size);
+      });
+    }, () => {});
+}
+
+function stopPendingListener() {
+  if(_pendingListener) { _pendingListener(); _pendingListener = null; }
+}
+
+function updateAdminBadge(count) {
+  const btn = document.getElementById('adm-menu-btn');
+  if(!btn) return;
+  const existing = btn.querySelector('.adm-badge');
+  if(existing) existing.remove();
+  if(count > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'adm-badge';
+    badge.textContent = count;
+    badge.style.cssText = 'background:var(--r);color:#fff;border-radius:9px;font-size:9px;font-weight:800;padding:1px 5px;margin-left:4px;line-height:1.4';
+    btn.appendChild(badge);
+  }
+}
+
 async function initFirebase() {
   const cfg = getFbConfig();
   if(!cfg || !cfg.apiKey) return false;
@@ -1164,6 +1250,17 @@ async function initFirebase() {
         if(admBtn) admBtn.style.display = isAdmin ? 'flex' : 'none';
         if(hasLicense) {
           startRealtimeSync();
+          if(isAdmin) {
+            // Pede permissão de notificação e ativa push para o admin
+            if('Notification' in window && Notification.permission === 'default') {
+              Notification.requestPermission().then(p => {
+                if(p === 'granted') subscribeAdminPush();
+              });
+            } else if(Notification.permission === 'granted') {
+              subscribeAdminPush();
+            }
+            startPendingListener();
+          }
         } else {
           // Show license activation screen
           document.getElementById('license-ov').classList.remove('hidden');
@@ -1173,6 +1270,7 @@ async function initFirebase() {
       } else {
         S.licenseValid = false;
         stopRealtimeSync();
+        stopPendingListener();
       }
     });
     return true;
@@ -1432,6 +1530,14 @@ async function submitAuth() {
           status: 'pending'
         });
       } catch(e) { /* silencioso — não bloqueia o cadastro */ }
+      // Envia push para o admin via Worker (funciona mesmo com app fechado)
+      try {
+        await fetch(AI_PROXY_URL + '/notify-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-App-Token': 'controlplus-app' },
+          body: JSON.stringify({ email, event: 'new_registration' })
+        });
+      } catch(e) { /* silencioso */ }
     }
     closeLogin();
     showToast(authTab==='login' ? '✅ Login efetuado!' : '✅ Conta criada! Aguarde sua chave de acesso.', 'ok');
@@ -1527,6 +1633,9 @@ function clearAllTabsUI() {
 
 // ══ LICENSE SYSTEM ══
 const ADMIN_EMAIL = 'diegolanacommerce@gmail.com'; // seu email de admin
+// VAPID public key para Web Push (par gerado — private key fica no Worker)
+const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBrqLHCMkfRfe1LHXPDU';
+let _pushSubscription = null; // endpoint Web Push do admin (quando logado)
 
 function genLicenseKey() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1599,13 +1708,14 @@ async function loadPendingUsers() {
   try {
     const snap = await fbDb.collection('pending_users')
       .where('status','==','pending')
-      .orderBy('createdAt','desc')
       .get();
     if(snap.empty) {
       el.innerHTML = '<div style="font-size:12px;color:var(--txm)">Nenhum usuário aguardando.</div>';
       return;
     }
-    el.innerHTML = snap.docs.map(doc => {
+    // Ordena por data mais recente no cliente (evita índice composto no Firestore)
+    const docs = snap.docs.slice().sort((a,b) => (b.data().createdAt||0) - (a.data().createdAt||0));
+    el.innerHTML = docs.map(doc => {
       const d = doc.data();
       const dt = new Date(d.createdAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
       return `<div style="background:var(--surf);border-radius:var(--rads);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--brd)">
@@ -3905,7 +4015,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-8';
+const C = 'cp-v5-9';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
@@ -3992,6 +4102,21 @@ self.addEventListener('message', e => {
     });
   }
 });
+// Push remoto (app fechado) — enviado pelo Worker via Web Push API
+self.addEventListener('push', e => {
+  let data = { title: '🆕 Novo cliente — Control+', body: 'Novo usuário aguarda licença', tag: 'new-client-push' };
+  try { const p = e.data && e.data.json(); if(p) data = { ...data, ...p }; } catch(err) {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="44" fill="%231D9E75"/><text x="96" y="125" font-size="80" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold">C+</text></svg>',
+      tag: data.tag || 'new-client-push',
+      requireInteraction: true,
+      data: { url: self.location.href }
+    })
+  );
+});
+
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(clients.matchAll({type:'window'}).then(cs => {
