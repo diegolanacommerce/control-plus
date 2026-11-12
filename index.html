@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-11T20:39 v5-7 -->
+<!-- build: 2026-11-12T07:31 v5-8 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -162,10 +162,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 .bill-ai-spin svg{width:16px;height:16px;stroke:var(--g);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── FAB ── */
-.fab{position:absolute;right:16px;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));width:52px;height:52px;background:linear-gradient(135deg,var(--g),var(--gd));border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(29,158,117,.45);z-index:50;transition:all .2s cubic-bezier(.34,1.4,.64,1)}
-.fab:active{transform:scale(.93)}
-.fab svg{width:22px;height:22px;stroke:#fff;stroke-width:2.2}
 
 /* ── PANES ── */
 .pane{display:none;flex:1;flex-direction:column;overflow:hidden;position:absolute;inset:0;bottom:var(--nav-h);transition:opacity .2s}
@@ -1091,10 +1087,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
     </div>
   </div>
 
-  <!-- FAB -->
-  <button class="fab" id="fab" onclick="openNewTx(null)">
-    <svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
 </div>
 
 <script>
@@ -2105,10 +2097,6 @@ function updatePeriodUI() {
     badge.textContent = '⏭️ Mês futuro'; badge.className='period-badge is-future';
   }
 
-  // FAB: hide on past months (read-only feel) or show with warning
-  const fab = document.getElementById('fab');
-  fab.style.opacity = isPast ? '0.6' : '1';
-  fab.title = isPast ? `Adicionando em ${label} (passado)` : '';
 }
 updatePeriodUI();
 
@@ -2140,8 +2128,6 @@ function updateNavIndicator() {
 }
 setTimeout(updateNavIndicator, 100);
 
-// ══ FAB ══
-document.getElementById('fab').addEventListener('click', ()=> openNewTx(null));
 
 // ══ CAT GRID BUILD ══
 function buildCatGrid() {
@@ -3919,7 +3905,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-7';
+const C = 'cp-v5-8';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
