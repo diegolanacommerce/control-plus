@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-13T09:25 v5-12 -->
+<!-- build: 2026-11-13T09:36 v5-13 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -1985,7 +1985,7 @@ async function loadAdminKeys() {
         <div style="color:var(--txm);font-size:11px;margin-bottom:8px">${l.email || '<sem e-mail>'} · Vence: ${expTxt}</div>
         <!-- Editar período com destaque no atual -->
         <div style="display:flex;gap:5px;flex-wrap:wrap">
-          ${periodBtn(1,'+1d')}${periodBtn(7,'+7d')}${periodBtn(15,'+15d')}${periodBtn(30,'+30d')}${periodBtn(90,'+90d')}${periodBtn(180,'+180d')}${periodBtn(365,'+365d')}
+          ${periodBtn(1,'1d')}${periodBtn(7,'7d')}${periodBtn(15,'15d')}${periodBtn(30,'30d')}${periodBtn(90,'90d')}${periodBtn(180,'180d')}${periodBtn(365,'365d')}
           <button onclick="extendLicense('${keyE}',99999)" style="padding:4px 9px;border-radius:6px;border:1.5px solid ${isVit?'var(--g)':'var(--g)'};background:${isVit?'var(--g)':'var(--gl)'};color:${isVit?'#fff':'var(--gd)'};font-size:10px;font-weight:${isVit?'800':'700'};cursor:pointer">∞ Vitalícia</button>
         </div>
       </div>`;
@@ -2031,22 +2031,16 @@ async function toggleLicenseActive(key, currentActive) {
 
 async function extendLicense(key, days) {
   try {
-    // Busca expiresAt atual
-    const doc = await fbDb.collection('licenses').doc(key).get();
-    if(!doc.exists) { showToast('Chave não encontrada', 'err'); return; }
-    const lic = doc.data();
+    // Período fixo a partir de HOJE — não é somatória
     let newExpires;
     if(days === 99999) {
       newExpires = 99999999999999;
     } else {
-      // Se ainda não venceu, estende a partir da data atual de expiração; senão, a partir de hoje
-      const base = (lic.expiresAt && lic.expiresAt !== 99999999999999 && lic.expiresAt > Date.now())
-        ? lic.expiresAt : Date.now();
-      newExpires = base + days * 86400000;
+      newExpires = Date.now() + days * 86400000;
     }
     await fbDb.collection('licenses').doc(key).update({ expiresAt: newExpires, active: true, periodDays: days });
     const expTxt = days === 99999 ? 'Vitalícia' : new Date(newExpires).toLocaleDateString('pt-BR');
-    showToast(`✅ Vence agora: ${expTxt}`, 'ok');
+    showToast(`✅ Período: ${days === 99999 ? 'Vitalícia' : days+'d'} · Vence: ${expTxt}`, 'ok');
     loadAdminKeys();
   } catch(e) { showToast('Erro ao editar período', 'err'); }
 }
@@ -4106,7 +4100,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-12';
+const C = 'cp-v5-13';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
