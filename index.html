@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-13T09:36 v5-13 -->
+<!-- build: 2026-11-13T12:00 v5-14 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -1732,8 +1732,8 @@ async function loadPendingUsers() {
           <div style="font-size:11px;color:var(--txm)">Cadastrou em ${dt}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button onclick="emitLicenseFor('${d.email}')" style="background:var(--g);color:#fff;border:none;padding:7px 12px;border-radius:var(--rads);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🔑 Emitir</button>
-          <button onclick="deletePendingUser('${d.email}')" style="background:var(--rl);color:var(--rd);border:none;padding:7px 10px;border-radius:var(--rads);font-size:13px;cursor:pointer;line-height:1" title="Excluir solicitação">🗑</button>
+          <button onclick="emitLicenseFor(this.dataset.email)" data-email="${d.email.replace(/"/g,'&quot;')}" style="background:var(--g);color:#fff;border:none;padding:7px 12px;border-radius:var(--rads);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🔑 Emitir</button>
+          <button onclick="deletePendingUser(this.dataset.email)" data-email="${d.email.replace(/"/g,'&quot;')}" style="background:var(--rl);color:var(--rd);border:none;padding:7px 10px;border-radius:var(--rads);font-size:13px;cursor:pointer;line-height:1" title="Excluir solicitação">🗑</button>
         </div>
       </div>`;
     }).join('');
@@ -1952,9 +1952,11 @@ async function loadAdminKeys() {
   const list = document.getElementById('adm-keys-list');
   list.innerHTML = '<div style="font-size:12px;color:var(--txm)">Carregando...</div>';
   try {
-    const snap = await fbDb.collection('licenses').orderBy('createdAt','desc').limit(50).get();
+    const snap = await fbDb.collection('licenses').limit(100).get();
     if(snap.empty) { list.innerHTML = '<div style="font-size:12px;color:var(--txm)">Nenhuma chave gerada ainda.</div>'; return; }
-    list.innerHTML = snap.docs.map(d => {
+    // Ordena por data de criação mais recente no cliente (evita índice composto Firestore)
+    const sortedDocs = snap.docs.slice().sort((a,b) => (b.data().createdAt||0) - (a.data().createdAt||0));
+    list.innerHTML = sortedDocs.map(d => {
       const l = d.data();
       const now = Date.now();
       const expired = l.expiresAt !== 99999999999999 && l.expiresAt < now;
@@ -1962,12 +1964,13 @@ async function loadAdminKeys() {
       const isActive = l.active && !expired;
       const statusColor = !l.active ? 'var(--r)' : expired ? 'var(--a)' : 'var(--g)';
       const statusLabel = !l.active ? 'Inativa' : expired ? 'Expirada' : 'Ativa';
-      const keyE = l.key.replace(/'/g,"\\'");
+      // Usa data-key para evitar problemas com caracteres especiais no onclick
+      const keyAttr = l.key.replace(/"/g,'&quot;');
       // Destaca o período que foi selecionado (salvo em periodDays)
       const selPeriod = l.periodDays || null;
       function periodBtn(days, label) {
         const isSel = selPeriod === days && l.active && !expired;
-        return `<button onclick="extendLicense('${keyE}',${days})" style="padding:4px 9px;border-radius:6px;border:1.5px solid ${isSel?'var(--g)':'var(--brd)'};background:${isSel?'var(--gl)':'var(--surf)'};color:${isSel?'var(--gd)':'var(--txm)'};font-size:10px;font-weight:${isSel?'800':'700'};cursor:pointer">${label}</button>`;
+        return `<button onclick="extendLicense(this.dataset.key,${days})" data-key="${keyAttr}" style="padding:4px 9px;border-radius:6px;border:1.5px solid ${isSel?'var(--g)':'var(--brd)'};background:${isSel?'var(--gl)':'var(--surf)'};color:${isSel?'var(--gd)':'var(--txm)'};font-size:10px;font-weight:${isSel?'800':'700'};cursor:pointer">${label}</button>`;
       }
       const isVit = l.expiresAt === 99999999999999 && l.active;
       return `<div style="background:var(--surf2);border:1px solid var(--brd);border-radius:var(--radm);padding:12px;font-size:12px">
@@ -1975,31 +1978,22 @@ async function loadAdminKeys() {
           <span style="font-family:monospace;font-weight:700;font-size:11px;color:var(--tx)">${l.key}</span>
           <div style="display:flex;gap:5px;align-items:center">
             <!-- Toggle ativo/inativo -->
-            <button onclick="toggleLicenseActive('${keyE}',${l.active})" style="display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;border:1.5px solid ${statusColor};background:transparent;color:${statusColor};font-size:11px;font-weight:700;cursor:pointer">
+            <button onclick="toggleLicenseActive(this.dataset.key,${l.active})" data-key="${keyAttr}" style="display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;border:1.5px solid ${statusColor};background:transparent;color:${statusColor};font-size:11px;font-weight:700;cursor:pointer">
               <span style="width:7px;height:7px;border-radius:50%;background:${statusColor};display:inline-block"></span>${statusLabel}
             </button>
             <!-- Excluir -->
-            <button onclick="deleteLicense('${keyE}')" style="background:var(--rl);color:var(--rd);border:none;padding:4px 8px;border-radius:6px;font-size:13px;cursor:pointer;line-height:1" title="Excluir licença">🗑</button>
+            <button onclick="deleteLicense(this.dataset.key)" data-key="${keyAttr}" style="background:var(--rl);color:var(--rd);border:none;padding:4px 8px;border-radius:6px;font-size:13px;cursor:pointer;line-height:1" title="Excluir licença">🗑</button>
           </div>
         </div>
         <div style="color:var(--txm);font-size:11px;margin-bottom:8px">${l.email || '<sem e-mail>'} · Vence: ${expTxt}</div>
         <!-- Editar período com destaque no atual -->
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           ${periodBtn(1,'1d')}${periodBtn(7,'7d')}${periodBtn(15,'15d')}${periodBtn(30,'30d')}${periodBtn(90,'90d')}${periodBtn(180,'180d')}${periodBtn(365,'365d')}
-          <button onclick="extendLicense('${keyE}',99999)" style="padding:4px 9px;border-radius:6px;border:1.5px solid ${isVit?'var(--g)':'var(--g)'};background:${isVit?'var(--g)':'var(--gl)'};color:${isVit?'#fff':'var(--gd)'};font-size:10px;font-weight:${isVit?'800':'700'};cursor:pointer">∞ Vitalícia</button>
+          <button onclick="extendLicense(this.dataset.key,99999)" data-key="${keyAttr}" style="padding:4px 9px;border-radius:6px;border:1.5px solid ${isVit?'var(--g)':'var(--g)'};background:${isVit?'var(--g)':'var(--gl)'};color:${isVit?'#fff':'var(--gd)'};font-size:10px;font-weight:${isVit?'800':'700'};cursor:pointer">∞ Vitalícia</button>
         </div>
       </div>`;
     }).join('');
   } catch(e) { list.innerHTML = '<div style="font-size:12px;color:var(--r)">Erro ao carregar.</div>'; }
-}
-
-async function revokeKey(key) {
-  if(!confirm(`Revogar a chave ${key}?`)) return;
-  try {
-    await fbDb.collection('licenses').doc(key).update({active: false});
-    showToast('🔴 Chave revogada', 'ok');
-    loadAdminKeys();
-  } catch(e) { showToast('Erro ao revogar', 'err'); }
 }
 
 async function deletePendingUser(email) {
@@ -4100,7 +4094,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-13';
+const C = 'cp-v5-14';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
