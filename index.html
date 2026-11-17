@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-16T21:00 v5-16 -->
+<!-- build: 2026-11-16T21:30 v5-17 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -1100,6 +1100,7 @@ let fbApp = null, fbAuth = null, fbDb = null, fbUser = null;
 let fbLoaded = false;
 let fbListener = null;   // Firestore realtime listener
 let _isSyncing = false;  // prevent loop: cloud→local→cloud
+let _ownSaveTs = 0;      // timestamp do último save próprio — ignora snapshot que volta
 
 // Credenciais Firebase fixas — todos os usuários usam o mesmo projeto
 const FB_CONFIG_FIXED = {
@@ -1305,13 +1306,15 @@ function scheduleCloudSave() {
 }
 
 async function doCloudSave() {
-  if(!fbUser || !fbDb || _isSyncing) return;
+  if(!fbUser || !fbDb) return;
+  // Se ainda sincronizando, reagenda para daqui 1.5s em vez de descartar
+  if(_isSyncing) { clearTimeout(_syncTimer); _syncTimer = setTimeout(()=>doCloudSave(), 1500); return; }
   setSyncDot('syncing');
   try {
     const periods = getAllPeriods();
     const now = Date.now();
-    // Atualiza cp_last_save ANTES do save para que o onSnapshot que retorna
-    // veja localTs === cloudTs e não sobrescreva os dados locais (race condition)
+    // Marca timestamp antes do save — onSnapshot vai ignorar se cloudTs === _ownSaveTs
+    _ownSaveTs = now;
     localStorage.setItem('cp_last_save', String(now));
     const data = { _period: S.period, _updatedAt: now, _bills: getBills(), _cards: getCards() };
     periods.forEach(ym => { data[ym] = loadPeriod(ym); });
@@ -1361,7 +1364,9 @@ function startRealtimeSync() {
       // No primeiro snapshot sempre aplica nuvem se ela tiver dados
       // Nos seguintes, aplica apenas se nuvem for mais recente
       // Não aplica se o snapshot veio do nosso próprio save (mesmo timestamp ou dentro de 5s)
-      const shouldApply = _firstSnapshot ? (cloudTs > 0) : (cloudTs > localTs + 5000);
+      // Ignora snapshot que veio do nosso próprio save (mesmo timestamp)
+      const isOwnSave = (cloudTs === _ownSaveTs);
+      const shouldApply = _firstSnapshot ? (cloudTs > 0) : (!isOwnSave && cloudTs > localTs + 5000);
       if(shouldApply) {
         Object.keys(data).forEach(k => {
           if(/^\d{4}-\d{2}$/.test(k) && Array.isArray(data[k])) _localSavePeriod(k, data[k]);
@@ -2119,7 +2124,7 @@ function _localSavePeriod(ym, txs) {
 // Save locally + schedule cloud push
 function savePeriod(ym, txs) {
   localStorage.setItem(periodKey(ym), JSON.stringify(txs));
-  if(!_isSyncing) scheduleCloudSave();
+  scheduleCloudSave();
 }
 function getAllPeriods() {
   const keys = [];
@@ -2160,7 +2165,7 @@ function goToCurrentMonth() { setPeriod(currentYM()); showToast('📅 Mês atual
 function setPeriod(ym) {
   S.period = ym;
   localStorage.setItem('cp_period', ym);
-  if(!_isSyncing) scheduleCloudSave();
+  scheduleCloudSave();
   updatePeriodUI();
   renderHome();
   if(S.currentTab==='dash') renderDash();
@@ -3566,9 +3571,8 @@ function getBills() {
 }
 function saveBills(arr) {
   localStorage.setItem('cp_bills', JSON.stringify(arr));
-  // Não atualiza cp_last_save aqui — só doCloudSave controla esse timestamp
-  // para evitar race condition com onSnapshot
-  if(!_isSyncing) scheduleCloudSave();
+  // Sempre agenda — doCloudSave tem sua própria guarda contra _isSyncing
+  scheduleCloudSave();
 }
 
 let _billEditId = null;
@@ -4103,7 +4107,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-16';
+const C = 'cp-v5-17';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
