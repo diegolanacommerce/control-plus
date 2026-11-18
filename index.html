@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="theme-color" content="#1D9E75"/>
-<!-- build: 2026-11-16T22:00 v5-18 -->
+<!-- build: 2026-11-17T17:30 v5-19 -->
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Control+"/>
@@ -1299,46 +1299,41 @@ function setSyncDot(state) {
 // ── WRITE to cloud (debounced 1s, com timeout de 10s) ──
 let _syncTimer = null;
 function scheduleCloudSave() {
-  if(!fbUser || !fbDb) return;
+  if(!fbUser || !fbDb) return; // sem login, não tenta salvar na nuvem
   setSyncDot('syncing');
   clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => doCloudSave(), 1000);
+  _syncTimer = setTimeout(() => doCloudSave(), 2000); // debounce de 2s (era 1s)
 }
 
 async function doCloudSave() {
   if(!fbUser || !fbDb) return;
-  // Se ainda sincronizando, reagenda para daqui 1.5s em vez de descartar
+  // Se ainda sincronizando do servidor, reagenda
   if(_isSyncing) { clearTimeout(_syncTimer); _syncTimer = setTimeout(()=>doCloudSave(), 1500); return; }
   setSyncDot('syncing');
   try {
-    const periods = getAllPeriods();
     const now = Date.now();
-    // Marca timestamp antes do save — onSnapshot vai ignorar se cloudTs === _ownSaveTs
     _ownSaveTs = now;
     localStorage.setItem('cp_last_save', String(now));
-    // Remove imgData das bills antes de salvar na nuvem (base64 pode passar de 1MB — limite do Firestore)
-    const billsForCloud = getBills().map(b => { const {imgData, ...rest} = b; return rest; });
+
+    // Remove imgData (base64 ultrapassa 1MB — limite Firestore)
+    const billsForCloud = getBills().map(({imgData, ...b}) => b);
+    // Limita últimos 13 meses para controlar tamanho do documento
+    const recentPeriods = getAllPeriods().sort().slice(-13);
     const data = { _period: S.period, _updatedAt: now, _bills: billsForCloud, _cards: getCards() };
-    // Limita aos últimos 13 meses para não ultrapassar 1MB por documento no Firestore
-    const recentPeriods = periods.sort().slice(-13);
     recentPeriods.forEach(ym => { data[ym] = loadPeriod(ym); });
-    // Timeout de 10s para não ficar preso eternamente
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000));
-    await Promise.race([
-      fbDb.collection('users').doc(fbUser.uid).collection('data').doc('main').set(data),
-      timeout
-    ]);
+
+    const docRef = fbDb.collection('users').doc(fbUser.uid).collection('data').doc('main');
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000));
+    // set com merge=false só na primeira vez (doc pode não existir); update nas demais
+    await Promise.race([docRef.set(data), timeout]);
     setSyncDot('synced');
   } catch(e) {
     console.error('Cloud save error:', e.message);
     setSyncDot('error');
-    // Mantém cp_last_save com valor alto para que onSnapshot não sobrescreva dados locais
-    // mesmo após falha no cloud save
-    localStorage.setItem('cp_last_save', String(_ownSaveTs));
-    // Reagenda tentativa após 15s
+    localStorage.setItem('cp_last_save', String(_ownSaveTs)); // protege dados locais
     clearTimeout(_syncTimer);
-    _syncTimer = setTimeout(() => doCloudSave(), 15000);
-    showToast('⚠️ Erro ao salvar na nuvem. Tentando novamente...', 'err');
+    _syncTimer = setTimeout(() => doCloudSave(), 30000); // retry em 30s
+    showToast('⚠️ Erro ao salvar na nuvem. Tentando novamente em 30s.', 'err');
   }
 }
 
@@ -1432,50 +1427,62 @@ function stopRealtimeSync() {
 
 async function forceSyncNow() {
   closeUserMenu();
-  if(!fbUser) { showToast('Faça login para sincronizar', 'err'); return; }
+  if(!fbUser || !fbDb) { showToast('Faça login para sincronizar', 'err'); return; }
 
   setSyncDot('syncing');
   showToast('🔄 Sincronizando...', 'ok');
 
-  // 1. Sobe dados locais para a nuvem
-  await doCloudSave();
+  try {
+    const localTs = parseInt(localStorage.getItem('cp_last_save') || '0');
+    const docRef = fbDb.collection('users').doc(fbUser.uid).collection('data').doc('main');
 
-  // 2. Busca dados frescos do Firestore apenas se nuvem for mais recente que local
-  if(fbDb) {
-    try {
-      const docRef = fbDb.collection('users').doc(fbUser.uid).collection('data').doc('main');
-      const snap = await docRef.get({ source: 'server' });
-      if(snap.exists) {
-        const data = snap.data();
-        const cloudTs = data._updatedAt || 0;
-        const localTs = parseInt(localStorage.getItem('cp_last_save') || '0');
-        // Só aplica nuvem se ela for mais recente (outro dispositivo editou)
-        if(cloudTs > localTs + 5000 && cloudTs !== _ownSaveTs) {
-          _isSyncing = true;
-          try {
-            Object.keys(data).forEach(k => {
-              if(/^\d{4}-\d{2}$/.test(k) && Array.isArray(data[k])) _localSavePeriod(k, data[k]);
+    // Busca estado atual da nuvem (com timeout de 10s)
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000));
+    const snap = await Promise.race([docRef.get({ source: 'server' }), timeout]);
+
+    if(!snap.exists) {
+      // Nuvem vazia — sobe tudo
+      await doCloudSave();
+    } else {
+      const cloudTs = snap.data()?._updatedAt || 0;
+
+      if(cloudTs > localTs + 2000 && cloudTs !== _ownSaveTs) {
+        // Nuvem é mais recente (outro dispositivo) — aplica localmente
+        _isSyncing = true;
+        try {
+          const data = snap.data();
+          Object.keys(data).forEach(k => {
+            if(/^\d{4}-\d{2}$/.test(k) && Array.isArray(data[k])) _localSavePeriod(k, data[k]);
+          });
+          if(data._period) { S.period = data._period; localStorage.setItem('cp_period', S.period); }
+          if(data._bills && Array.isArray(data._bills)) {
+            const localBills = getBills();
+            const merged = data._bills.map(b => {
+              const local = localBills.find(l => l.id === b.id);
+              return local?.imgData ? {...b, imgData: local.imgData} : b;
             });
-            if(data._period) { S.period = data._period; localStorage.setItem('cp_period', S.period); }
-            if(data._bills && Array.isArray(data._bills)) {
-              const localBills = getBills();
-              const merged = data._bills.map(b => {
-                const local = localBills.find(l => l.id === b.id);
-                return local?.imgData ? {...b, imgData: local.imgData} : b;
-              });
-              localStorage.setItem('cp_bills', JSON.stringify(merged));
-            }
-            if(data._cards) { localStorage.setItem('cp_cards', JSON.stringify(data._cards)); }
-            localStorage.setItem('cp_last_save', String(cloudTs));
-          } finally { _isSyncing = false; }
-        }
+            localStorage.setItem('cp_bills', JSON.stringify(merged));
+          }
+          if(data._cards) { localStorage.setItem('cp_cards', JSON.stringify(data._cards)); }
+          localStorage.setItem('cp_last_save', String(cloudTs));
+          _ownSaveTs = cloudTs;
+        } finally { _isSyncing = false; }
+        showToast('🔄 Dados atualizados da nuvem', 'ok');
+      } else if(localTs > cloudTs + 2000) {
+        // Local é mais recente — sobe para a nuvem
+        await doCloudSave();
       }
-    } catch(e) { console.warn('forceSyncNow fetch error:', e); }
+      // Se timestamps iguais: já sincronizado, não faz nada
+    }
+  } catch(e) {
+    console.error('forceSyncNow error:', e.message);
+    setSyncDot('error');
+    showToast('⚠️ Erro ao sincronizar: ' + (e.message === 'timeout' ? 'tempo esgotado. Verifique sua conexão.' : e.message), 'err');
+    return;
   }
 
-  // 3. Rerenderiza TUDO imediatamente
-  updatePeriodUI();
-  renderHome();
+  // Rerenderiza tudo
+  updatePeriodUI(); renderHome();
   if(S.currentTab === 'dash')  renderDash();
   if(S.currentTab === 'ext')   renderExtract();
   if(S.currentTab === 'bills') { renderBills(); updateBillsBadge(); }
@@ -1483,7 +1490,7 @@ async function forceSyncNow() {
   setSyncDot('synced');
   showToast('✅ Sincronizado!', 'ok');
 
-  // 4. Atualiza o Service Worker (busca novo código do servidor)
+  // Atualiza Service Worker
   if('serviceWorker' in navigator && window._swReg) {
     window._swReg.update().catch(() => {});
   }
@@ -4137,7 +4144,7 @@ document.addEventListener('visibilitychange', () => {
 // ══ SERVICE WORKER (com suporte a notificações agendadas) ══
 if('serviceWorker' in navigator){
   const sw = `
-const C = 'cp-v5-18';
+const C = 'cp-v5-19';
 const BILL_DAYS = [5,3,1,0];
 
 self.addEventListener('install', e => {
